@@ -36,6 +36,10 @@ ScaffoldingReadMe.txt
 # NuGet Symbol Packages
 *.snupkg
 
+
+# dotenv environment variables file
+.env
+
 # Others
 ~$*
 *~
@@ -51,4 +55,11 @@ CodeCoverage/
 # NUnit
 *.VisualState.xml
 TestResult.xml
+
 nunit-*.xml
+
+.vs/
+*.user
+*.suo
+*.cache
+appsettings.Development.json
