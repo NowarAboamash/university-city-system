@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.5.11626.173 insiders
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FeedbackService", "FeedbackService.csproj", "{F8A71CF5-101B-2CEA-47AA-08F2C6EFD16E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F8A71CF5-101B-2CEA-47AA-08F2C6EFD16E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F8A71CF5-101B-2CEA-47AA-08F2C6EFD16E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F8A71CF5-101B-2CEA-47AA-08F2C6EFD16E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F8A71CF5-101B-2CEA-47AA-08F2C6EFD16E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {14796212-1E5C-4242-9C41-64F7A99EE518}
+	EndGlobalSection
+EndGlobal
