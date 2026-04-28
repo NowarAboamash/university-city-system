@@ -29,5 +29,10 @@ namespace Gateway.Controllers
             })
             .ToArray();
         }
+
+        public void Welcome()
+        {
+            Console.WriteLine("Hello There");
+        }
     }
 }
