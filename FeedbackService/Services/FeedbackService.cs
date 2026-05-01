@@ -31,7 +31,15 @@ namespace FeedbackService.Services
                     Description = f.Description,
                     IsAnonymous = f.IsAnonymous,
                     IsRead = f.IsRead,
-                    CreatedAt = f.CreatedAt
+                    CreatedAt = f.CreatedAt,
+                    Images = f.Images
+                        .Select(i => new FeedbackImageDto
+                        {
+                            Id = i.Id,
+                            ImagePath = i.ImagePath,
+                            FeedbackId = i.FeedbackId
+                        })
+                        .ToList()
                 })
                 .ToListAsync();
         }
@@ -50,7 +58,15 @@ namespace FeedbackService.Services
                     Description = f.Description,
                     IsAnonymous = f.IsAnonymous,
                     IsRead = f.IsRead,
-                    CreatedAt = f.CreatedAt
+                    CreatedAt = f.CreatedAt,
+                    Images = f.Images
+                        .Select(i => new FeedbackImageDto
+                        {
+                            Id = i.Id,
+                            ImagePath = i.ImagePath,
+                            FeedbackId = i.FeedbackId
+                        })
+                        .ToList()
                 })
                 .FirstOrDefaultAsync();
         }
