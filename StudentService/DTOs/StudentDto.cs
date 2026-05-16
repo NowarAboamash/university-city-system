@@ -16,6 +16,8 @@ public class StudentDto
 
     public string? Nationality { get; set; }
 
+    public Gender Gender { get; set; }
+
     public string CollegeName { get; set; } = string.Empty;
 
     public string GovernorateName { get; set; } = string.Empty;

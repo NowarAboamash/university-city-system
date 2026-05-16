@@ -25,6 +25,8 @@ public class Student
 
     public string? Nationality { get; set; }
 
+    public Gender Gender { get; set; }
+
     public int CollegeId { get; set; }
 
     public College? College { get; set; }

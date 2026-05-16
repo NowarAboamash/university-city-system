@@ -47,6 +47,7 @@ public class StudentService : IStudentService
             PhoneNumber = dto.PhoneNumber,
             NationalId = dto.NationalId,
             Nationality = dto.Nationality,
+            Gender = dto.Gender,
             CollegeId = dto.CollegeId,
             GovernorateId = dto.GovernorateId,
             Village = dto.Village,
@@ -65,6 +66,7 @@ public class StudentService : IStudentService
             PhoneNumber = student.PhoneNumber,
             NationalId = student.NationalId,
             Nationality = student.Nationality,
+            Gender = student.Gender,
             CollegeName = college.Name,
             GovernorateName = governorate.Name,
             Village = student.Village,
@@ -86,6 +88,7 @@ public class StudentService : IStudentService
                 PhoneNumber = s.PhoneNumber,
                 NationalId = s.NationalId,
                 Nationality = s.Nationality,
+                Gender = s.Gender,
                 CollegeName = s.College != null ? s.College.Name : string.Empty,
                 GovernorateName = s.Governorate != null ? s.Governorate.Name : string.Empty,
                 Village = s.Village,
@@ -109,6 +112,7 @@ public class StudentService : IStudentService
                 PhoneNumber = s.PhoneNumber,
                 NationalId = s.NationalId,
                 Nationality = s.Nationality,
+                Gender = s.Gender,
                 CollegeName = s.College != null ? s.College.Name : string.Empty,
                 GovernorateName = s.Governorate != null ? s.Governorate.Name : string.Empty,
                 Village = s.Village,
@@ -147,6 +151,7 @@ public class StudentService : IStudentService
         student.PhoneNumber = dto.PhoneNumber;
         student.NationalId = dto.NationalId;
         student.Nationality = dto.Nationality;
+        student.Gender = dto.Gender;
         student.CollegeId = dto.CollegeId;
         student.GovernorateId = dto.GovernorateId;
         student.Village = dto.Village;
@@ -165,6 +170,7 @@ public class StudentService : IStudentService
             PhoneNumber = student.PhoneNumber,
             NationalId = student.NationalId,
             Nationality = student.Nationality,
+            Gender = student.Gender,
             CollegeName = collegeName,
             GovernorateName = governorateName,
             Village = student.Village,
