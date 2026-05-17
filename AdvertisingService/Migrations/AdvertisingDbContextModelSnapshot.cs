@@ -71,7 +71,7 @@ namespace AdvertisingService.Migrations
 
                     b.HasIndex("StartDate");
 
-                    b.ToTable("Advertisements");
+                    b.ToTable("Advertisements", (string)null);
                 });
 
             modelBuilder.Entity("AdvertisingService.Models.AdvertisementCollege", b =>
@@ -84,7 +84,7 @@ namespace AdvertisingService.Migrations
 
                     b.HasKey("AdvertisementId", "CollegeId");
 
-                    b.ToTable("AdvertisementColleges");
+                    b.ToTable("AdvertisementColleges", (string)null);
                 });
 
             modelBuilder.Entity("AdvertisingService.Models.AdvertisementGovernorate", b =>
@@ -97,7 +97,7 @@ namespace AdvertisingService.Migrations
 
                     b.HasKey("AdvertisementId", "GovernorateId");
 
-                    b.ToTable("AdvertisementGovernorates");
+                    b.ToTable("AdvertisementGovernorates", (string)null);
                 });
 
             modelBuilder.Entity("AdvertisingService.Models.AdvertisementCollege", b =>

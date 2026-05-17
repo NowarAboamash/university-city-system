@@ -17,7 +17,8 @@ public class AdvertisementsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<AdvertisementDto>> Create([FromBody] CreateAdvertisementDto dto, [FromHeader(Name = "X-User-Id")] Guid createdBy)
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<AdvertisementDto>> Create([FromForm] CreateAdvertisementDto dto, [FromHeader(Name = "X-User-Id")] Guid createdBy)
     {
         try
         {
@@ -31,7 +32,8 @@ public class AdvertisementsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateAdvertisementDto dto)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Update(Guid id, [FromForm] UpdateAdvertisementDto dto)
     {
         try
         {

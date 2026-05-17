@@ -15,6 +15,7 @@ public class AdvertisingDbContext : DbContext
 
     public DbSet<AdvertisementGovernorate> AdvertisementGovernorates => Set<AdvertisementGovernorate>();
 
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Advertisement>(entity =>
@@ -43,5 +44,6 @@ public class AdvertisingDbContext : DbContext
                 .HasForeignKey(ag => ag.AdvertisementId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
     }
 }

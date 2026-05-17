@@ -34,4 +34,5 @@ public class Advertisement
     public ICollection<AdvertisementCollege> AdvertisementColleges { get; set; } = new List<AdvertisementCollege>();
 
     public ICollection<AdvertisementGovernorate> AdvertisementGovernorates { get; set; } = new List<AdvertisementGovernorate>();
+
 }

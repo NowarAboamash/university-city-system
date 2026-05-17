@@ -4,30 +4,37 @@ using AdvertisingService.Enums;
 using AdvertisingService.Interfaces;
 using AdvertisingService.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 
 namespace AdvertisingService.Services;
 
 public class AdvertisementService : IAdvertisementService
 {
     private readonly AdvertisingDbContext _dbContext;
+    private readonly IImageStorageService _imageStorageService;
     private readonly TimeProvider _timeProvider;
 
-    public AdvertisementService(AdvertisingDbContext dbContext, TimeProvider timeProvider)
+    public AdvertisementService(AdvertisingDbContext dbContext, IImageStorageService imageStorageService, TimeProvider timeProvider)
     {
         _dbContext = dbContext;
+        _imageStorageService = imageStorageService;
         _timeProvider = timeProvider;
     }
 
     public async Task<AdvertisementDto> CreateAsync(CreateAdvertisementDto dto, Guid createdBy)
     {
-        ValidateAdvertisement(dto.Title, dto.ImageUrl, dto.Type, dto.StartDate, dto.EndDate);
+        ValidateAdvertisement(dto.Title, dto.Type, dto.StartDate, dto.EndDate, dto.Image);
+
+        var imageUrl = dto.Image is null
+            ? null
+            : await _imageStorageService.UploadAsync(dto.Image, "advertisements");
 
         var advertisement = new Advertisement
         {
             Id = Guid.NewGuid(),
             Title = dto.Title.Trim(),
             Description = dto.Description?.Trim(),
-            ImageUrl = dto.ImageUrl?.Trim(),
+            ImageUrl = imageUrl,
             Type = dto.Type,
             TargetGender = dto.TargetGender,
             IsActive = true,
@@ -85,8 +92,6 @@ public class AdvertisementService : IAdvertisementService
 
     public async Task<bool> UpdateAsync(Guid id, UpdateAdvertisementDto dto)
     {
-        ValidateAdvertisement(dto.Title, dto.ImageUrl, dto.Type, dto.StartDate, dto.EndDate);
-
         var ad = await _dbContext.Advertisements
             .Include(a => a.AdvertisementColleges)
             .Include(a => a.AdvertisementGovernorates)
@@ -97,9 +102,17 @@ public class AdvertisementService : IAdvertisementService
             return false;
         }
 
+        ValidateAdvertisement(dto.Title, dto.Type, dto.StartDate, dto.EndDate, dto.Image, ad.ImageUrl);
+
+        if (dto.Image is not null)
+        {
+            var newImageUrl = await _imageStorageService.UploadAsync(dto.Image, "advertisements");
+            await _imageStorageService.DeleteAsync(ad.ImageUrl);
+            ad.ImageUrl = newImageUrl;
+        }
+
         ad.Title = dto.Title.Trim();
         ad.Description = dto.Description?.Trim();
-        ad.ImageUrl = dto.ImageUrl?.Trim();
         ad.Type = dto.Type;
         ad.TargetGender = dto.TargetGender;
         ad.Priority = dto.Priority;
@@ -116,18 +129,20 @@ public class AdvertisementService : IAdvertisementService
 
     public async Task<bool> DeleteAsync(Guid id)
     {
-        var ad = await _dbContext.Advertisements.FindAsync(id);
+        var ad = await _dbContext.Advertisements
+            .FirstOrDefaultAsync(a => a.Id == id);
         if (ad is null)
         {
             return false;
         }
 
+        await _imageStorageService.DeleteAsync(ad.ImageUrl);
         _dbContext.Advertisements.Remove(ad);
         await _dbContext.SaveChangesAsync();
         return true;
     }
 
-    private static void ValidateAdvertisement(string title, string? imageUrl, AdType type, DateTime startDate, DateTime endDate)
+    private static void ValidateAdvertisement(string title, AdType type, DateTime startDate, DateTime endDate, IFormFile? image, string? existingImageUrl = null)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -139,9 +154,9 @@ public class AdvertisementService : IAdvertisementService
             throw new ArgumentException("StartDate must be less than or equal to EndDate.");
         }
 
-        if (type == AdType.Banner && string.IsNullOrWhiteSpace(imageUrl))
+        if (type == AdType.Banner && image is null && string.IsNullOrWhiteSpace(existingImageUrl))
         {
-            throw new ArgumentException("ImageUrl is required for banner advertisements.");
+            throw new ArgumentException("Image is required for banner advertisements.");
         }
     }
 
@@ -168,17 +183,23 @@ public class AdvertisementService : IAdvertisementService
 
     private static AdvertisementDto MapToDto(Advertisement advertisement)
     {
+        var imageUrl = string.IsNullOrWhiteSpace(advertisement.ImageUrl)
+            ? null
+            : $"/api/advertisementimages/advertisements/{Path.GetFileName(advertisement.ImageUrl)}";
+
         return new AdvertisementDto
         {
             Id = advertisement.Id,
             Title = advertisement.Title,
             Description = advertisement.Description,
-            ImageUrl = advertisement.ImageUrl,
+            ImageUrl = imageUrl,
             Type = advertisement.Type,
             TargetGender = advertisement.TargetGender,
             Priority = advertisement.Priority,
             StartDate = advertisement.StartDate,
-            EndDate = advertisement.EndDate
+            EndDate = advertisement.EndDate,
+            IsActive = advertisement.IsActive,
+            CreatedAt = advertisement.CreatedAt
         };
     }
 }

@@ -63,5 +63,5 @@ nunit-*.xml
 *.suo
 *.cache
 appsettings.Development.json
-
+appsettings.json
 *.publishsettings

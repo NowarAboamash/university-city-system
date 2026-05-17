@@ -1,4 +1,5 @@
 using AdvertisingService.Enums;
+using Microsoft.AspNetCore.Http;
 
 namespace AdvertisingService.DTOs;
 
@@ -8,7 +9,7 @@ public class UpdateAdvertisementDto
 
     public string? Description { get; set; }
 
-    public string? ImageUrl { get; set; }
+    public IFormFile? Image { get; set; }
 
     public AdType Type { get; set; }
 

@@ -2,7 +2,7 @@ using AdvertisingService.Enums;
 
 namespace AdvertisingService.DTOs;
 
-public class AdvertisementDto
+public class AdvertisementResponseDto
 {
     public Guid Id { get; set; }
 
@@ -21,4 +21,12 @@ public class AdvertisementDto
     public DateTime StartDate { get; set; }
 
     public DateTime EndDate { get; set; }
+
+    public bool IsActive { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+}
+
+public class AdvertisementDto : AdvertisementResponseDto
+{
 }

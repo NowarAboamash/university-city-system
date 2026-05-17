@@ -17,7 +17,7 @@ public class UpdateStudentDto
     public string? Nationality { get; set; }
 
     [Required]
-    public StudentService.Enums.Gender Gender { get; set; }
+    public Gender Gender { get; set; }
 
     [Range(1, int.MaxValue)]
     public int CollegeId { get; set; }
