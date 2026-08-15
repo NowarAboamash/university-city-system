@@ -1,0 +1,119 @@
+{
+  "Routes": [
+    {
+      "DownstreamPathTemplate": "/api/feedbacks",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5069 }
+      ],
+      "UpstreamPathTemplate": "/api/feedbacks",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "feedback"
+    },
+    {
+      "DownstreamPathTemplate": "/api/feedbacks/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5069 }
+      ],
+      "UpstreamPathTemplate": "/api/feedbacks/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "SwaggerKey": "feedback"
+    },
+    {
+      "DownstreamPathTemplate": "/api/feedbackimages",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5069 }
+      ],
+      "UpstreamPathTemplate": "/api/feedbackimages",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "feedback"
+    },
+    {
+      "DownstreamPathTemplate": "/api/feedbackimages/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5069 }
+      ],
+      "UpstreamPathTemplate": "/api/feedbackimages/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "DELETE" ],
+      "SwaggerKey": "feedback"
+    },
+    {
+      "DownstreamPathTemplate": "/api/ads",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5000 }
+      ],
+      "UpstreamPathTemplate": "/api/ads",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "advertising"
+    },
+    {
+      "DownstreamPathTemplate": "/api/ads/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5000 }
+      ],
+      "UpstreamPathTemplate": "/api/ads/{everything}",
+      "UpstreamHttpMethod": [ "GET", "PUT", "DELETE" ],
+      "SwaggerKey": "advertising"
+    },
+    {
+      "DownstreamPathTemplate": "/api/ad-types",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5000 }
+      ],
+      "UpstreamPathTemplate": "/api/ad-types",
+      "UpstreamHttpMethod": [ "GET" ],
+      "SwaggerKey": "advertising"
+    },
+    {
+      "DownstreamPathTemplate": "/api/target-genders",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5000 }
+      ],
+      "UpstreamPathTemplate": "/api/target-genders",
+      "UpstreamHttpMethod": [ "GET" ],
+      "SwaggerKey": "advertising"
+    },
+    {
+      "DownstreamPathTemplate": "/api/advertisementimages/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5000 }
+      ],
+      "UpstreamPathTemplate": "/api/advertisementimages/{everything}",
+      "UpstreamHttpMethod": [ "GET" ],
+      "SwaggerKey": "advertising"
+    }
+  ],
+  "SwaggerEndPoints": [
+    {
+      "Key": "feedback",
+      "Config": [
+        {
+          "Name": "Feedback API",
+          "Version": "v1",
+          "Url": "http://localhost:5069/swagger/v1/swagger.json"
+        }
+      ]
+    },
+    {
+      "Key": "advertising",
+      "Config": [
+        {
+          "Name": "Advertising API",
+          "Version": "v1",
+          "Url": "http://localhost:5000/swagger/v1/swagger.json"
+        }
+      ]
+    }
+  ],
+  "GlobalConfiguration": {
+    "BaseUrl": "http://localhost:5067"
+  }
+}
