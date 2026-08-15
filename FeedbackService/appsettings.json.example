@@ -1,6 +1,6 @@
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=NOWAR\\SQLEXPRESS;Database=FeedbackServiceDb;Trusted_Connection=True;TrustServerCertificate=True;"
+    "DefaultConnection": "Server=YOUR_SERVER\\SQLEXPRESS;Database=FeedbackServiceDb;Trusted_Connection=True;TrustServerCertificate=True;"
   },
   "Jwt": {
     "AccessPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6K2sldnldJ1PY4ASoYBSLX+13QQvx09tHPcuy+af9S8jAeoCjSj1VZEM2OU9Sttsz+zSOEMYXPa2TbSXZXH6rU6QXga7DAGxErrtkCfU39TqXN/F/BJ0Kw5BL9wZcPkcUc71sonvGWGP69P1Y3eXqiDSDl10mLuPwNe50h0LoC3bXFwYzl7DuZvsOewdtUvzNJIZ7iQuu3k4kUvZ71O2UrOJG4mmHjnP/7tHdOf8YauYdN+kprSZjrmA62I050MyX1CSIibzgJ+1rdTTxP2PrB//j7xL7MXaU+1I8TmsIlhf4l8r5JkCIpj4V/7jQpMJX1/qgA0ixNAaqbiqJWHWVQIDAQAB"
