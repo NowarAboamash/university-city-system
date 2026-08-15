@@ -1,0 +1,71 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - university-city
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  feedbackservice:
+    build:
+      context: ./FeedbackService
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=FeedbackServiceDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;"
+    ports:
+      - "5069:8080"
+    volumes:
+      - feedback-uploads:/app/wwwroot/uploads
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - university-city
+
+  advertisingservice:
+    build:
+      context: ./AdvertisingService
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=AdvertisingServiceDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;"
+    ports:
+      - "5000:8080"
+    volumes:
+      - advertising-uploads:/app/wwwroot/uploads
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - university-city
+
+  gateway:
+    build:
+      context: ./Gateway
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+    ports:
+      - "5067:8080"
+    depends_on:
+      - feedbackservice
+      - advertisingservice
+    networks:
+      - university-city
+
+networks:
+  university-city:
+    driver: bridge
+
+volumes:
+  sqlserver-data:
+  feedback-uploads:
+  advertising-uploads:
