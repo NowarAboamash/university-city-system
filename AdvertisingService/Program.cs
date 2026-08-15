@@ -13,7 +13,11 @@ Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "advertisements")
 
 builder.Services.AddControllers();
 builder.Services.AddDbContext<AdvertisingDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlOptions => sqlOptions
+            .EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null)
+            .CommandTimeout(60)));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IImageStorageService, ImageStorageService>();
 builder.Services.AddScoped<IAdvertisementService, AdvertisementService>();
@@ -33,6 +37,12 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AdvertisingDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
 // Configure the HTTP request pipeline.
 app.UseSwagger();
