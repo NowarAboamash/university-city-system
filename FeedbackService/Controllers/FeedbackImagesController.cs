@@ -1,13 +1,17 @@
 using FeedbackService.DTOs;
 using FeedbackService.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FeedbackService.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class FeedbackImagesController : ControllerBase
     {
+        private const string AdminRoles = "admin,super_admin";
+
         private readonly IFeedbackImageService _feedbackImageService;
 
         public FeedbackImagesController(IFeedbackImageService feedbackImageService)
@@ -56,6 +60,7 @@ namespace FeedbackService.Controllers
             return CreatedAtAction(nameof(GetByFeedbackId), new { feedbackId = created.FeedbackId }, created);
         }
 
+        [Authorize(Roles = AdminRoles)]
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -68,6 +73,7 @@ namespace FeedbackService.Controllers
             return NoContent();
         }
 
+        [Authorize(Roles = AdminRoles)]
         [HttpDelete("by-path")]
         public async Task<IActionResult> DeleteByPath([FromQuery] string fileNameOrPath)
         {

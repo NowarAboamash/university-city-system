@@ -6,9 +6,6 @@ namespace FeedbackService.DTOs
     public class FeedbackCreateDto
     {
         [Required]
-        public int StudentId { get; set; }
-
-        [Required]
         public FeedbackType Type { get; set; }
 
         [Required]

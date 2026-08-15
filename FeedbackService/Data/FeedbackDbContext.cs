@@ -24,6 +24,10 @@ namespace FeedbackService.Data
 
                 entity.HasKey(f => f.Id);
 
+                entity.Property(f => f.StudentId)
+                    .IsRequired()
+                    .HasMaxLength(64);
+
                 entity.Property(f => f.Title)
                     .IsRequired()
                     .HasMaxLength(200);

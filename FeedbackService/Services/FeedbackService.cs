@@ -17,11 +17,17 @@ namespace FeedbackService.Services
             _fileHandler = fileHandler;
         }
 
-        public async Task<IReadOnlyList<FeedbackReadDto>> GetAllAsync()
+        public async Task<PagedResult<FeedbackReadDto>> GetAllAsync(PaginationParams parameters)
         {
-            return await _context.Feedbacks
+            var query = _context.Feedbacks
                 .AsNoTracking()
-                .OrderByDescending(f => f.CreatedAt)
+                .OrderByDescending(f => f.CreatedAt);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .Skip((parameters.PageNumber - 1) * parameters.PageSize)
+                .Take(parameters.PageSize)
                 .Select(f => new FeedbackReadDto
                 {
                     Id = f.Id,
@@ -42,6 +48,14 @@ namespace FeedbackService.Services
                         .ToList()
                 })
                 .ToListAsync();
+
+            return new PagedResult<FeedbackReadDto>
+            {
+                Items = items,
+                PageNumber = parameters.PageNumber,
+                PageSize = parameters.PageSize,
+                TotalCount = totalCount
+            };
         }
 
         public async Task<FeedbackReadDto?> GetByIdAsync(int id)
@@ -71,11 +85,11 @@ namespace FeedbackService.Services
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<FeedbackReadDto> CreateAsync(FeedbackCreateDto dto)
+        public async Task<FeedbackReadDto> CreateAsync(FeedbackCreateDto dto, string studentId)
         {
             var entity = new Feedback
             {
-                StudentId = dto.StudentId,
+                StudentId = studentId,
                 Type = dto.Type,
                 Title = dto.Title,
                 Description = dto.Description,
@@ -100,64 +114,75 @@ namespace FeedbackService.Services
             };
         }
 
-        public async Task<(FeedbackReadDto? Feedback, string? ErrorMessage)> CreateWithImagesAsync(FeedbackCreateWithImagesDto dto)
+        public async Task<(FeedbackReadDto? Feedback, string? ErrorMessage)> CreateWithImagesAsync(FeedbackCreateWithImagesDto dto, string studentId)
         {
-            await using var transaction = await _context.Database.BeginTransactionAsync();
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            var entity = new Feedback
+            return await strategy.ExecuteAsync(async () =>
             {
-                StudentId = dto.StudentId,
-                Type = dto.Type,
-                Title = dto.Title,
-                Description = dto.Description,
-                IsAnonymous = dto.IsAnonymous,
-                IsRead = false,
-                CreatedAt = DateTime.UtcNow
-            };
+                await using var transaction = await _context.Database.BeginTransactionAsync();
 
-            _context.Feedbacks.Add(entity);
-            await _context.SaveChangesAsync();
-
-            if (dto.Images is not null && dto.Images.Count > 0)
-            {
-                foreach (var image in dto.Images)
+                var entity = new Feedback
                 {
-                    if (!_fileHandler.IsValidImage(image, out var errorMessage))
+                    StudentId = studentId,
+                    Type = dto.Type,
+                    Title = dto.Title,
+                    Description = dto.Description,
+                    IsAnonymous = dto.IsAnonymous,
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Feedbacks.Add(entity);
+                await _context.SaveChangesAsync();
+
+                var savedImagePaths = new List<string>();
+
+                if (dto.Images is not null && dto.Images.Count > 0)
+                {
+                    foreach (var image in dto.Images)
                     {
-                        await transaction.RollbackAsync();
-                        return (null, errorMessage);
+                        if (!_fileHandler.IsValidImage(image, out var errorMessage))
+                        {
+                            await transaction.RollbackAsync();
+                            await CleanupSavedImagesAsync(savedImagePaths);
+                            return ((FeedbackReadDto?)null, errorMessage);
+                        }
+
+                        var imagePath = await _fileHandler.SaveImageAsync(image);
+                        if (string.IsNullOrWhiteSpace(imagePath))
+                        {
+                            await transaction.RollbackAsync();
+                            await CleanupSavedImagesAsync(savedImagePaths);
+                            return ((FeedbackReadDto?)null, "Failed to save one or more image files.");
+                        }
+
+                        savedImagePaths.Add(imagePath);
+
+                        _context.FeedbackImages.Add(new FeedbackImage
+                        {
+                            FeedbackId = entity.Id,
+                            ImagePath = imagePath
+                        });
                     }
 
-                    var imagePath = await _fileHandler.SaveImageAsync(image);
-                    if (string.IsNullOrWhiteSpace(imagePath))
-                    {
-                        await transaction.RollbackAsync();
-                        return (null, "Failed to save one or more image files.");
-                    }
-
-                    _context.FeedbackImages.Add(new FeedbackImage
-                    {
-                        FeedbackId = entity.Id,
-                        ImagePath = imagePath
-                    });
+                    await _context.SaveChangesAsync();
                 }
 
-                await _context.SaveChangesAsync();
-            }
+                await transaction.CommitAsync();
 
-            await transaction.CommitAsync();
-
-            return (new FeedbackReadDto
-            {
-                Id = entity.Id,
-                StudentId = entity.StudentId,
-                Type = entity.Type,
-                Title = entity.Title,
-                Description = entity.Description,
-                IsAnonymous = entity.IsAnonymous,
-                IsRead = entity.IsRead,
-                CreatedAt = entity.CreatedAt
-            }, null);
+                return (new FeedbackReadDto
+                {
+                    Id = entity.Id,
+                    StudentId = entity.StudentId,
+                    Type = entity.Type,
+                    Title = entity.Title,
+                    Description = entity.Description,
+                    IsAnonymous = entity.IsAnonymous,
+                    IsRead = entity.IsRead,
+                    CreatedAt = entity.CreatedAt
+                }, (string?)null);
+            });
         }
 
         public async Task<bool> UpdateAsync(int id, FeedbackUpdateDto dto)
@@ -168,7 +193,6 @@ namespace FeedbackService.Services
                 return false;
             }
 
-            entity.StudentId = dto.StudentId;
             entity.Type = dto.Type;
             entity.Title = dto.Title;
             entity.Description = dto.Description;
@@ -181,15 +205,33 @@ namespace FeedbackService.Services
 
         public async Task<bool> DeleteAsync(int id)
         {
-            var entity = await _context.Feedbacks.FirstOrDefaultAsync(f => f.Id == id);
+            var entity = await _context.Feedbacks
+                .Include(f => f.Images)
+                .FirstOrDefaultAsync(f => f.Id == id);
             if (entity is null)
             {
                 return false;
             }
 
+            var imagePaths = entity.Images?.Select(i => i.ImagePath).ToList() ?? new List<string>();
+
             _context.Feedbacks.Remove(entity);
             await _context.SaveChangesAsync();
+
+            foreach (var imagePath in imagePaths)
+            {
+                await _fileHandler.DeleteImageAsync(imagePath);
+            }
+
             return true;
+        }
+
+        private async Task CleanupSavedImagesAsync(IEnumerable<string> imagePaths)
+        {
+            foreach (var imagePath in imagePaths)
+            {
+                await _fileHandler.DeleteImageAsync(imagePath);
+            }
         }
     }
 }

@@ -10,7 +10,8 @@ namespace FeedbackService.Models
         [Key]
         public int Id { get; set; }
 
-        public int StudentId { get; set; }
+        [Required, MaxLength(64)]
+        public string StudentId { get; set; } = string.Empty;
         public FeedbackType Type { get; set; }
         [Required, MaxLength(200)]
         public string Title { get; set; }
