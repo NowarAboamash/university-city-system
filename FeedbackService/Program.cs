@@ -3,6 +3,7 @@ using FeedbackService.Interfaces;
 using FeedbackService.Services;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Auth;
+using SharedKernel.Media;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,9 +19,21 @@ builder.Services.AddDbContext<FeedbackDbContext>(options =>
 builder.Services.AddScoped<IFeedbackService, FeedbackService.Services.FeedbackService>();
 builder.Services.AddScoped<IFeedbackImageService, FeedbackImageService>();
 builder.Services.AddScoped<IFileHandler, FileHandler>();
+builder.Services.AddCloudinaryImageUploader();
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options => options.AddJwtBearerSecurity());
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+});
 
 var app = builder.Build();
 // Apply migrations (if using EF Core) � recommended before seeding
@@ -31,14 +44,13 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
+app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();

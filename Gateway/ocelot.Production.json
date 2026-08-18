@@ -1,0 +1,59 @@
+{
+  "Routes": [
+    {
+      "DownstreamPathTemplate": "/api/feedbacks",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "feedbackservice001.runasp.net", "Port": 80 }
+      ],
+      "UpstreamPathTemplate": "/api/feedbacks",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "feedback"
+    },
+    {
+      "DownstreamPathTemplate": "/api/feedbacks/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "feedbackservice001.runasp.net", "Port": 80 }
+      ],
+      "UpstreamPathTemplate": "/api/feedbacks/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "SwaggerKey": "feedback"
+    },
+    {
+      "DownstreamPathTemplate": "/api/feedbackimages",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "feedbackservice001.runasp.net", "Port": 80 }
+      ],
+      "UpstreamPathTemplate": "/api/feedbackimages",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "feedback"
+    },
+    {
+      "DownstreamPathTemplate": "/api/feedbackimages/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "feedbackservice001.runasp.net", "Port": 80 }
+      ],
+      "UpstreamPathTemplate": "/api/feedbackimages/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "DELETE" ],
+      "SwaggerKey": "feedback"
+    }
+  ],
+  "SwaggerEndPoints": [
+    {
+      "Key": "feedback",
+      "Config": [
+        {
+          "Name": "Feedback API",
+          "Version": "v1",
+          "Url": "http://feedbackservice001.runasp.net/swagger/v1/swagger.json"
+        }
+      ]
+    }
+  ],
+  "GlobalConfiguration": {
+    "BaseUrl": "http://gateway001.runasp.net"
+  }
+}
