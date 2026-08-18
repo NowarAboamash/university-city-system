@@ -17,11 +17,16 @@ namespace FeedbackService.Services
             _fileHandler = fileHandler;
         }
 
-        public async Task<PagedResult<FeedbackReadDto>> GetAllAsync(PaginationParams parameters)
+        public async Task<PagedResult<FeedbackReadDto>> GetAllAsync(PaginationParams parameters, string? studentId)
         {
-            var query = _context.Feedbacks
-                .AsNoTracking()
-                .OrderByDescending(f => f.CreatedAt);
+            var query = _context.Feedbacks.AsNoTracking().AsQueryable();
+
+            if (studentId is not null)
+            {
+                query = query.Where(f => f.StudentId == studentId);
+            }
+
+            query = query.OrderByDescending(f => f.CreatedAt);
 
             var totalCount = await query.CountAsync();
 
@@ -38,6 +43,9 @@ namespace FeedbackService.Services
                     IsAnonymous = f.IsAnonymous,
                     IsRead = f.IsRead,
                     CreatedAt = f.CreatedAt,
+                    AdminReply = f.AdminReply,
+                    RepliedByAdminId = f.RepliedByAdminId,
+                    RepliedAt = f.RepliedAt,
                     Images = f.Images
                         .Select(i => new FeedbackImageDto
                         {
@@ -58,31 +66,54 @@ namespace FeedbackService.Services
             };
         }
 
-        public async Task<FeedbackReadDto?> GetByIdAsync(int id)
+        public async Task<FeedbackReadDto?> GetByIdAsync(int id, bool markAsRead = false)
         {
-            return await _context.Feedbacks
-                .AsNoTracking()
-                .Where(f => f.Id == id)
-                .Select(f => new FeedbackReadDto
-                {
-                    Id = f.Id,
-                    StudentId = f.StudentId,
-                    Type = f.Type,
-                    Title = f.Title,
-                    Description = f.Description,
-                    IsAnonymous = f.IsAnonymous,
-                    IsRead = f.IsRead,
-                    CreatedAt = f.CreatedAt,
-                    Images = f.Images
-                        .Select(i => new FeedbackImageDto
-                        {
-                            Id = i.Id,
-                            ImagePath = i.ImagePath,
-                            FeedbackId = i.FeedbackId
-                        })
-                        .ToList()
-                })
-                .FirstOrDefaultAsync();
+            if (!markAsRead)
+            {
+                return await _context.Feedbacks
+                    .AsNoTracking()
+                    .Where(f => f.Id == id)
+                    .Select(f => new FeedbackReadDto
+                    {
+                        Id = f.Id,
+                        StudentId = f.StudentId,
+                        Type = f.Type,
+                        Title = f.Title,
+                        Description = f.Description,
+                        IsAnonymous = f.IsAnonymous,
+                        IsRead = f.IsRead,
+                        CreatedAt = f.CreatedAt,
+                        AdminReply = f.AdminReply,
+                        RepliedByAdminId = f.RepliedByAdminId,
+                        RepliedAt = f.RepliedAt,
+                        Images = f.Images
+                            .Select(i => new FeedbackImageDto
+                            {
+                                Id = i.Id,
+                                ImagePath = i.ImagePath,
+                                FeedbackId = i.FeedbackId
+                            })
+                            .ToList()
+                    })
+                    .FirstOrDefaultAsync();
+            }
+
+            var entity = await _context.Feedbacks
+                .Include(f => f.Images)
+                .FirstOrDefaultAsync(f => f.Id == id);
+
+            if (entity is null)
+            {
+                return null;
+            }
+
+            if (!entity.IsRead)
+            {
+                entity.IsRead = true;
+                await _context.SaveChangesAsync();
+            }
+
+            return MapToDto(entity);
         }
 
         public async Task<FeedbackReadDto> CreateAsync(FeedbackCreateDto dto, string studentId)
@@ -101,17 +132,7 @@ namespace FeedbackService.Services
             _context.Feedbacks.Add(entity);
             await _context.SaveChangesAsync();
 
-            return new FeedbackReadDto
-            {
-                Id = entity.Id,
-                StudentId = entity.StudentId,
-                Type = entity.Type,
-                Title = entity.Title,
-                Description = entity.Description,
-                IsAnonymous = entity.IsAnonymous,
-                IsRead = entity.IsRead,
-                CreatedAt = entity.CreatedAt
-            };
+            return MapToDto(entity);
         }
 
         public async Task<(FeedbackReadDto? Feedback, string? ErrorMessage)> CreateWithImagesAsync(FeedbackCreateWithImagesDto dto, string studentId)
@@ -171,17 +192,7 @@ namespace FeedbackService.Services
 
                 await transaction.CommitAsync();
 
-                return (new FeedbackReadDto
-                {
-                    Id = entity.Id,
-                    StudentId = entity.StudentId,
-                    Type = entity.Type,
-                    Title = entity.Title,
-                    Description = entity.Description,
-                    IsAnonymous = entity.IsAnonymous,
-                    IsRead = entity.IsRead,
-                    CreatedAt = entity.CreatedAt
-                }, (string?)null);
+                return (MapToDto(entity), (string?)null);
             });
         }
 
@@ -201,6 +212,27 @@ namespace FeedbackService.Services
 
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<FeedbackReadDto?> ReplyAsync(int id, FeedbackReplyDto dto, string adminId)
+        {
+            var entity = await _context.Feedbacks
+                .Include(f => f.Images)
+                .FirstOrDefaultAsync(f => f.Id == id);
+
+            if (entity is null)
+            {
+                return null;
+            }
+
+            entity.AdminReply = dto.Reply;
+            entity.RepliedByAdminId = adminId;
+            entity.RepliedAt = DateTime.UtcNow;
+            entity.IsRead = true;
+
+            await _context.SaveChangesAsync();
+
+            return MapToDto(entity);
         }
 
         public async Task<bool> DeleteAsync(int id)
@@ -233,5 +265,28 @@ namespace FeedbackService.Services
                 await _fileHandler.DeleteImageAsync(imagePath);
             }
         }
+
+        private static FeedbackReadDto MapToDto(Feedback entity) => new()
+        {
+            Id = entity.Id,
+            StudentId = entity.StudentId,
+            Type = entity.Type,
+            Title = entity.Title,
+            Description = entity.Description,
+            IsAnonymous = entity.IsAnonymous,
+            IsRead = entity.IsRead,
+            CreatedAt = entity.CreatedAt,
+            AdminReply = entity.AdminReply,
+            RepliedByAdminId = entity.RepliedByAdminId,
+            RepliedAt = entity.RepliedAt,
+            Images = entity.Images?
+                .Select(i => new FeedbackImageDto
+                {
+                    Id = i.Id,
+                    ImagePath = i.ImagePath,
+                    FeedbackId = i.FeedbackId
+                })
+                .ToList() ?? []
+        };
     }
 }

@@ -20,6 +20,10 @@ namespace FeedbackService.Models
         public bool IsRead { get; set; } = false ;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow ;
 
+        public string? AdminReply { get; set; }
+        public string? RepliedByAdminId { get; set; }
+        public DateTime? RepliedAt { get; set; }
+
         public ICollection<FeedbackImage> Images { get; set; }
 
     }

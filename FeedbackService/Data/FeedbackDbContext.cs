@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using FeedbackService.Models;
 namespace FeedbackService.Data
 {
@@ -15,6 +16,26 @@ namespace FeedbackService.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // SQL Server's datetime2 doesn't store DateTimeKind, so EF returns
+            // CreatedAt as Kind=Unspecified even though the value is always UTC.
+            // That makes System.Text.Json omit the "Z" suffix, so clients treat
+            // the timestamp as local time instead of UTC. Force Kind=Utc on read
+            // so the serialized value is unambiguous.
+            var utcConverter = new ValueConverter<DateTime, DateTime>(
+                v => v,
+                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                foreach (var property in entityType.GetProperties())
+                {
+                    if (property.ClrType == typeof(DateTime))
+                    {
+                        property.SetValueConverter(utcConverter);
+                    }
+                }
+            }
 
             modelBuilder.Entity<Feedback>().Property(f => f.Type).HasConversion<int>();
 
@@ -47,6 +68,9 @@ namespace FeedbackService.Data
 
                 entity.Property(f => f.CreatedAt)
                     .HasDefaultValueSql("GETUTCDATE()");
+
+                entity.Property(f => f.RepliedByAdminId)
+                    .HasMaxLength(64);
             });
 
             modelBuilder.Entity<FeedbackImage>(entity =>
