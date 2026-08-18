@@ -38,10 +38,28 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=AdvertisingServiceDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;"
+      NOTIFICATION_SERVICE_BASE_URL: "http://notificationservice:8080"
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
     ports:
       - "5000:8080"
     volumes:
       - advertising-uploads:/app/wwwroot/uploads
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - university-city
+
+  notificationservice:
+    build:
+      context: ./NotificationService
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=NotificationServiceDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;"
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+    ports:
+      - "5081:8080"
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -58,6 +76,7 @@ services:
     depends_on:
       - feedbackservice
       - advertisingservice
+      - notificationservice
     networks:
       - university-city
 
@@ -69,3 +88,4 @@ volumes:
   sqlserver-data:
   feedback-uploads:
   advertising-uploads:
+

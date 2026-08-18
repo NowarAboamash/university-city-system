@@ -299,6 +299,53 @@
         }
       }
     },
+    "/api/Feedbacks/mine": {
+      "get": {
+        "tags": [
+          "Feedbacks"
+        ],
+        "parameters": [
+          {
+            "name": "PageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackReadDtoPagedResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackReadDtoPagedResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackReadDtoPagedResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Feedbacks/{id}": {
       "get": {
         "tags": [
@@ -481,6 +528,65 @@
           }
         }
       }
+    },
+    "/api/Feedbacks/{id}/reply": {
+      "post": {
+        "tags": [
+          "Feedbacks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackReplyDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackReplyDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackReplyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackReadDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackReadDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackReadDto"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -598,6 +704,19 @@
             "type": "string",
             "format": "date-time"
           },
+          "adminReply": {
+            "type": "string",
+            "nullable": true
+          },
+          "repliedByAdminId": {
+            "type": "string",
+            "nullable": true
+          },
+          "repliedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
           "images": {
             "type": "array",
             "items": {
@@ -634,6 +753,19 @@
             "type": "integer",
             "format": "int32",
             "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "FeedbackReplyDto": {
+        "required": [
+          "reply"
+        ],
+        "type": "object",
+        "properties": {
+          "reply": {
+            "minLength": 1,
+            "type": "string"
           }
         },
         "additionalProperties": false

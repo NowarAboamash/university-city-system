@@ -81,14 +81,34 @@
       "SwaggerKey": "advertising"
     },
     {
-      "DownstreamPathTemplate": "/api/advertisementimages/{everything}",
+      "DownstreamPathTemplate": "/api/notifications",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "advertisingservice", "Port": 8080 }
+        { "Host": "notificationservice", "Port": 8080 }
       ],
-      "UpstreamPathTemplate": "/api/advertisementimages/{everything}",
-      "UpstreamHttpMethod": [ "GET" ],
-      "SwaggerKey": "advertising"
+      "UpstreamPathTemplate": "/api/notifications",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "notification"
+    },
+    {
+      "DownstreamPathTemplate": "/api/notifications/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "SwaggerKey": "notification"
+    },
+    {
+      "DownstreamPathTemplate": "/api/device-tokens",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/api/device-tokens",
+      "UpstreamHttpMethod": [ "POST", "DELETE" ],
+      "SwaggerKey": "notification"
     }
   ],
   "SwaggerEndPoints": [
@@ -109,6 +129,16 @@
           "Name": "Advertising API",
           "Version": "v1",
           "Url": "http://advertisingservice:8080/swagger/v1/swagger.json"
+        }
+      ]
+    },
+    {
+      "Key": "notification",
+      "Config": [
+        {
+          "Name": "Notification API",
+          "Version": "v1",
+          "Url": "http://notificationservice:8080/swagger/v1/swagger.json"
         }
       ]
     }

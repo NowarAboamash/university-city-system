@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../SharedKernel/SharedKernel.csproj" />
+  <Project Path="NotificationService.csproj" />
+</Solution>

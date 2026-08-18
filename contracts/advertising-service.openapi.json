@@ -1,5 +1,5 @@
 {
-  "openapi": "3.0.1",
+  "openapi": "3.0.4",
   "info": {
     "title": "AdvertisingService",
     "version": "1.0"
@@ -33,28 +33,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/api/advertisementimages/advertisements/{fileName}": {
-      "get": {
-        "tags": [
-          "AdvertisementImages"
-        ],
-        "parameters": [
-          {
-            "name": "fileName",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
           }
         }
       }

@@ -8,5 +8,16 @@
   "ConnectionStrings": {
     "DefaultConnection": "Server=YOUR_SERVER\\SQLEXPRESS;Database=AdvertisingServiceDb;Trusted_Connection=True;TrustServerCertificate=True;"
   },
+  "Cloudinary": {
+    "CloudName": "",
+    "ApiKey": "",
+    "ApiSecret": ""
+  },
+  "NotificationService": {
+    "BaseUrl": "http://localhost:5081"
+  },
+  "InternalApi": {
+    "ServiceKey": ""
+  },
   "AllowedHosts": "*"
 }

@@ -5,6 +5,8 @@ using AdvertisingService.Interfaces;
 using AdvertisingService.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
+using SharedKernel.Notifications;
+using System.Text.Json;
 
 namespace AdvertisingService.Services;
 
@@ -13,12 +15,18 @@ public class AdvertisementService : IAdvertisementService
     private readonly AdvertisingDbContext _dbContext;
     private readonly IImageStorageService _imageStorageService;
     private readonly TimeProvider _timeProvider;
+    private readonly INotificationPublisher _notificationPublisher;
 
-    public AdvertisementService(AdvertisingDbContext dbContext, IImageStorageService imageStorageService, TimeProvider timeProvider)
+    public AdvertisementService(
+        AdvertisingDbContext dbContext,
+        IImageStorageService imageStorageService,
+        TimeProvider timeProvider,
+        INotificationPublisher notificationPublisher)
     {
         _dbContext = dbContext;
         _imageStorageService = imageStorageService;
         _timeProvider = timeProvider;
+        _notificationPublisher = notificationPublisher;
     }
 
     public async Task<AdvertisementDto> CreateAsync(CreateAdvertisementDto dto, Guid createdBy)
@@ -49,6 +57,15 @@ public class AdvertisementService : IAdvertisementService
 
         _dbContext.Advertisements.Add(advertisement);
         await _dbContext.SaveChangesAsync();
+
+        // Best-effort: NotifyRoleAsync never throws, so a NotificationService outage
+        // never breaks ad creation.
+        var data = JsonSerializer.Serialize(new { adId = advertisement.Id });
+        await _notificationPublisher.NotifyRoleAsync(
+            "user",
+            "إعلان جديد",
+            advertisement.Title,
+            data);
 
         return MapToDto(advertisement);
     }
@@ -183,16 +200,12 @@ public class AdvertisementService : IAdvertisementService
 
     private static AdvertisementDto MapToDto(Advertisement advertisement)
     {
-        var imageUrl = string.IsNullOrWhiteSpace(advertisement.ImageUrl)
-            ? null
-            : $"/api/advertisementimages/advertisements/{Path.GetFileName(advertisement.ImageUrl)}";
-
         return new AdvertisementDto
         {
             Id = advertisement.Id,
             Title = advertisement.Title,
             Description = advertisement.Description,
-            ImageUrl = imageUrl,
+            ImageUrl = advertisement.ImageUrl,
             Type = advertisement.Type,
             TargetGender = advertisement.TargetGender,
             Priority = advertisement.Priority,
