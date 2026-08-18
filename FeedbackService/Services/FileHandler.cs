@@ -1,6 +1,7 @@
 using FeedbackService.Interfaces;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using SharedKernel.Media;
 
 namespace FeedbackService.Services
 {
@@ -8,12 +9,15 @@ namespace FeedbackService.Services
     {
         private static readonly string[] AllowedExtensions = [".jpg", ".jpeg", ".png", ".webp"];
         private const long MaxFileSize = 5 * 1024 * 1024;
+        private const string CloudinaryFolder = "feedback";
 
         private readonly IWebHostEnvironment _environment;
+        private readonly IImageUploader _imageUploader;
 
-        public FileHandler(IWebHostEnvironment environment)
+        public FileHandler(IWebHostEnvironment environment, IImageUploader imageUploader)
         {
             _environment = environment;
+            _imageUploader = imageUploader;
         }
 
         public bool IsValidImage(IFormFile file, out string errorMessage)
@@ -44,37 +48,34 @@ namespace FeedbackService.Services
 
         public async Task<string?> SaveImageAsync(IFormFile file)
         {
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            var fileName = $"{Guid.NewGuid()}{extension}";
-
-            var webRootPath = _environment.WebRootPath;
-            if (string.IsNullOrWhiteSpace(webRootPath))
-            {
-                webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-            }
-
-            var uploadsDirectory = Path.Combine(webRootPath, "uploads");
-            Directory.CreateDirectory(uploadsDirectory);
-
-            var absolutePath = Path.Combine(uploadsDirectory, fileName);
-            await using var stream = new FileStream(absolutePath, FileMode.Create);
-            await file.CopyToAsync(stream);
-
-            return $"/uploads/{fileName}";
+            await using var stream = file.OpenReadStream();
+            return await _imageUploader.UploadAsync(stream, file.FileName, CloudinaryFolder);
         }
 
-        public Task<bool> DeleteImageAsync(string fileNameOrPath)
+        public async Task<bool> DeleteImageAsync(string fileNameOrPath)
         {
             if (string.IsNullOrWhiteSpace(fileNameOrPath))
             {
-                return Task.FromResult(false);
+                return false;
             }
 
+            // Rows created before the Cloudinary migration still hold local "/uploads/..." paths.
+            if (!fileNameOrPath.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !fileNameOrPath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                return DeleteLocalFile(fileNameOrPath);
+            }
+
+            return await _imageUploader.DeleteAsync(fileNameOrPath);
+        }
+
+        private bool DeleteLocalFile(string fileNameOrPath)
+        {
             var normalized = fileNameOrPath.Replace('\\', '/');
             var fileName = Path.GetFileName(normalized);
             if (string.IsNullOrWhiteSpace(fileName))
             {
-                return Task.FromResult(false);
+                return false;
             }
 
             var webRootPath = _environment.WebRootPath;
@@ -86,11 +87,11 @@ namespace FeedbackService.Services
             var absolutePath = Path.Combine(webRootPath, "uploads", fileName);
             if (!File.Exists(absolutePath))
             {
-                return Task.FromResult(false);
+                return false;
             }
 
             File.Delete(absolutePath);
-            return Task.FromResult(true);
+            return true;
         }
     }
 }
