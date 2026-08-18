@@ -39,6 +39,36 @@
       "UpstreamPathTemplate": "/api/feedbackimages/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "DELETE" ],
       "SwaggerKey": "feedback"
+    },
+    {
+      "DownstreamPathTemplate": "/api/notifications",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice001.runasp.net", "Port": 80 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "notification"
+    },
+    {
+      "DownstreamPathTemplate": "/api/notifications/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice001.runasp.net", "Port": 80 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "SwaggerKey": "notification"
+    },
+    {
+      "DownstreamPathTemplate": "/api/device-tokens",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice001.runasp.net", "Port": 80 }
+      ],
+      "UpstreamPathTemplate": "/api/device-tokens",
+      "UpstreamHttpMethod": [ "POST", "DELETE" ],
+      "SwaggerKey": "notification"
     }
   ],
   "SwaggerEndPoints": [
@@ -49,6 +79,16 @@
           "Name": "Feedback API",
           "Version": "v1",
           "Url": "http://feedbackservice001.runasp.net/swagger/v1/swagger.json"
+        }
+      ]
+    },
+    {
+      "Key": "notification",
+      "Config": [
+        {
+          "Name": "Notification API",
+          "Version": "v1",
+          "Url": "http://notificationservice001.runasp.net/swagger/v1/swagger.json"
         }
       ]
     }
