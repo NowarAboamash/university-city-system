@@ -4,6 +4,7 @@ using FeedbackService.Services;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Auth;
 using SharedKernel.Media;
+using SharedKernel.Users;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,7 @@ builder.Services.AddScoped<IFeedbackService, FeedbackService.Services.FeedbackSe
 builder.Services.AddScoped<IFeedbackImageService, FeedbackImageService>();
 builder.Services.AddScoped<IFileHandler, FileHandler>();
 builder.Services.AddCloudinaryImageUploader();
+builder.Services.AddAuthServiceUserLookup(builder.Configuration);
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options => options.AddJwtBearerSecurity());

@@ -683,6 +683,10 @@
             "type": "string",
             "nullable": true
           },
+          "studentName": {
+            "type": "string",
+            "nullable": true
+          },
           "type": {
             "$ref": "#/components/schemas/FeedbackType"
           },
@@ -709,6 +713,10 @@
             "nullable": true
           },
           "repliedByAdminId": {
+            "type": "string",
+            "nullable": true
+          },
+          "repliedByAdminName": {
             "type": "string",
             "nullable": true
           },

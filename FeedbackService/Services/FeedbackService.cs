@@ -3,6 +3,7 @@ using FeedbackService.DTOs;
 using FeedbackService.Interfaces;
 using FeedbackService.Models;
 using Microsoft.EntityFrameworkCore;
+using SharedKernel.Users;
 
 namespace FeedbackService.Services
 {
@@ -10,11 +11,13 @@ namespace FeedbackService.Services
     {
         private readonly FeedbackDbContext _context;
         private readonly IFileHandler _fileHandler;
+        private readonly IUserLookupService _userLookupService;
 
-        public FeedbackService(FeedbackDbContext context, IFileHandler fileHandler)
+        public FeedbackService(FeedbackDbContext context, IFileHandler fileHandler, IUserLookupService userLookupService)
         {
             _context = context;
             _fileHandler = fileHandler;
+            _userLookupService = userLookupService;
         }
 
         public async Task<PagedResult<FeedbackReadDto>> GetAllAsync(PaginationParams parameters, string? studentId)
@@ -57,6 +60,8 @@ namespace FeedbackService.Services
                 })
                 .ToListAsync();
 
+            await EnrichWithNamesAsync(items);
+
             return new PagedResult<FeedbackReadDto>
             {
                 Items = items,
@@ -64,6 +69,50 @@ namespace FeedbackService.Services
                 PageSize = parameters.PageSize,
                 TotalCount = totalCount
             };
+        }
+
+        private async Task EnrichWithNamesAsync(List<FeedbackReadDto> items)
+        {
+            var idsToLookup = new HashSet<string>();
+            foreach (var item in items)
+            {
+                if (!item.IsAnonymous)
+                {
+                    idsToLookup.Add(item.StudentId);
+                }
+
+                if (!string.IsNullOrWhiteSpace(item.RepliedByAdminId))
+                {
+                    idsToLookup.Add(item.RepliedByAdminId);
+                }
+            }
+
+            if (idsToLookup.Count == 0)
+            {
+                return;
+            }
+
+            var users = await _userLookupService.LookupUsersAsync(idsToLookup);
+            if (users.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var item in items)
+            {
+                // Never populate StudentName for anonymous feedback, even though StudentId
+                // is technically known - anonymity is a display rule, not a data-access one.
+                if (!item.IsAnonymous && users.TryGetValue(item.StudentId, out var student))
+                {
+                    item.StudentName = student.FullName;
+                }
+
+                if (!string.IsNullOrWhiteSpace(item.RepliedByAdminId) &&
+                    users.TryGetValue(item.RepliedByAdminId, out var admin))
+                {
+                    item.RepliedByAdminName = admin.FullName;
+                }
+            }
         }
 
         public async Task<FeedbackReadDto?> GetByIdAsync(int id, bool markAsRead = false)
