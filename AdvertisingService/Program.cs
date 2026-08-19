@@ -2,6 +2,7 @@ using AdvertisingService.Data;
 using AdvertisingService.Interfaces;
 using AdvertisingService.Services;
 using Microsoft.EntityFrameworkCore;
+using SharedKernel.Auth;
 using SharedKernel.Media;
 using SharedKernel.Notifications;
 
@@ -22,8 +23,9 @@ builder.Services.AddCloudinaryImageUploader();
 builder.Services.AddScoped<IAdvertisementService, AdvertisementService>();
 builder.Services.AddSharedNotificationPublisher(builder.Configuration, "AdvertisingService");
 builder.Services.AddHostedService<ExpiredAdvertisementCleanupService>();
+builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options => options.AddJwtBearerSecurity());
 
 builder.Services.AddCors(options =>
 {
@@ -52,10 +54,10 @@ app.UseStaticFiles();
 
 app.UseHttpsRedirection();
 
-app.UseAuthorization();
-
 app.UseCors("AllowAll");
 
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 

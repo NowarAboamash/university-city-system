@@ -57,6 +57,16 @@ Every FeedbackService endpoint requires `Authorization: Bearer <token>` — a JW
 - Both `FeedbackImages` delete endpoints (`DELETE /api/feedbackimages/{id}` and `/by-path`) are still `admin`/`super_admin` only — a `user` cleans up their own images by deleting the parent feedback (cascades), not by deleting individual images directly.
 - The public key is read from the `JWT_ACCESS_PUBLIC_KEY` environment variable first, falling back to `Jwt:AccessPublicKey` in `appsettings.json` (the key currently committed there is AuthService's real public key — safe to commit, it's the public half of the pair).
 
+### Authentication (AdvertisingService)
+
+Reads are public — `GET /api/ads`, `GET /api/ads/{id}`, `GET /api/ads/active`, `GET /api/ad-types`, `GET /api/target-genders` need no token, since ads are meant to be visible to anyone browsing the app.
+
+Writes require `Authorization: Bearer <token>` and role `admin`/`super_admin` — `POST /api/ads`, `PUT /api/ads/{id}`, `DELETE /api/ads/{id}`. There's no `user`-owns-their-own-ad concept like FeedbackService; ads are administrator-managed content, not user-generated, so there's no ownership check to bypass for admins.
+
+- **`X-User-Id` header is gone.** `CreatedBy` used to come from a client-supplied `X-User-Id` header with zero verification — anyone could impersonate anyone. It's now derived from the token's `sub` claim, same as FeedbackService's `StudentId`.
+- **`CreatedBy` is a `string`, not a `Guid`** — same Mongo-ObjectId-vs-Guid mismatch FeedbackService hit; fixed the same way (`nvarchar(64)` column, `ChangeCreatedByToString` migration).
+- Creating an ad now also calls `INotificationPublisher.NotifyRoleAsync("user", ...)` — see the NotificationService section below.
+
 ### NotificationService
 
 New service, same structure as FeedbackService (Controllers/DTOs/Models/Data/Interfaces/Services/Enums/Migrations, JWT auth via SharedKernel, CORS, always-on Swagger, Dockerfile). Pushes to mobile via Firebase Cloud Messaging (FCM). Its own DB (`NotificationServiceDb`), independent of FeedbackService/AdvertisingService.

@@ -29,7 +29,7 @@ public class AdvertisementService : IAdvertisementService
         _notificationPublisher = notificationPublisher;
     }
 
-    public async Task<AdvertisementDto> CreateAsync(CreateAdvertisementDto dto, Guid createdBy)
+    public async Task<AdvertisementDto> CreateAsync(CreateAdvertisementDto dto, string createdBy)
     {
         ValidateAdvertisement(dto.Title, dto.Type, dto.StartDate, dto.EndDate, dto.Image);
 

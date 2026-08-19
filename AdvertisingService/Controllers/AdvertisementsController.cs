@@ -1,7 +1,9 @@
 using AdvertisingService.DTOs;
 using AdvertisingService.Enums;
 using AdvertisingService.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SharedKernel.Auth;
 
 namespace AdvertisingService.Controllers;
 
@@ -9,6 +11,8 @@ namespace AdvertisingService.Controllers;
 [Route("api/ads")]
 public class AdvertisementsController : ControllerBase
 {
+    private const string AdminRoles = "admin,super_admin";
+
     private readonly IAdvertisementService _advertisementService;
 
     public AdvertisementsController(IAdvertisementService advertisementService)
@@ -16,10 +20,16 @@ public class AdvertisementsController : ControllerBase
         _advertisementService = advertisementService;
     }
 
+    [Authorize(Roles = AdminRoles)]
     [HttpPost]
     [Consumes("multipart/form-data")]
-    public async Task<ActionResult<AdvertisementDto>> Create([FromForm] CreateAdvertisementDto dto, [FromHeader(Name = "X-User-Id")] Guid createdBy)
+    public async Task<ActionResult<AdvertisementDto>> Create([FromForm] CreateAdvertisementDto dto)
     {
+        if (!User.TryGetUserId(out var createdBy))
+        {
+            return Unauthorized("Access token does not contain a valid user id.");
+        }
+
         try
         {
             var result = await _advertisementService.CreateAsync(dto, createdBy);
@@ -31,6 +41,7 @@ public class AdvertisementsController : ControllerBase
         }
     }
 
+    [Authorize(Roles = AdminRoles)]
     [HttpPut("{id:guid}")]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> Update(Guid id, [FromForm] UpdateAdvertisementDto dto)
@@ -46,6 +57,7 @@ public class AdvertisementsController : ControllerBase
         }
     }
 
+    [Authorize(Roles = AdminRoles)]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {

@@ -5,7 +5,7 @@ namespace AdvertisingService.Interfaces;
 
 public interface IAdvertisementService
 {
-    Task<AdvertisementDto> CreateAsync(CreateAdvertisementDto dto, Guid createdBy);
+    Task<AdvertisementDto> CreateAsync(CreateAdvertisementDto dto, string createdBy);
 
     Task<IReadOnlyList<AdvertisementDto>> GetAllAsync();
 

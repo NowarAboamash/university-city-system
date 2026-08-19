@@ -27,7 +27,9 @@ public class Advertisement
 
     public DateTime EndDate { get; set; }
 
-    public Guid CreatedBy { get; set; }
+    [Required]
+    [MaxLength(64)]
+    public string CreatedBy { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; }
 
