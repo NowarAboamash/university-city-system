@@ -14,8 +14,6 @@ namespace NotificationService.Data
 
         public virtual DbSet<NotificationRecipient> NotificationRecipients { get; set; }
 
-        public virtual DbSet<DeviceToken> DeviceTokens { get; set; }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -72,18 +70,6 @@ namespace NotificationService.Data
                     .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasIndex(r => new { r.NotificationId, r.StudentId }).IsUnique();
-            });
-
-            modelBuilder.Entity<DeviceToken>(entity =>
-            {
-                entity.ToTable("DeviceTokens");
-                entity.HasKey(t => t.Id);
-                entity.Property(t => t.StudentId).IsRequired().HasMaxLength(64);
-                entity.Property(t => t.Role).IsRequired().HasMaxLength(50);
-                entity.Property(t => t.FcmToken).IsRequired().HasMaxLength(500);
-
-                entity.HasIndex(t => t.FcmToken).IsUnique();
-                entity.HasIndex(t => t.StudentId);
             });
         }
     }

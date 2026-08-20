@@ -132,6 +132,7 @@ public class AdvertisementService : IAdvertisementService
         ad.Description = dto.Description?.Trim();
         ad.Type = dto.Type;
         ad.TargetGender = dto.TargetGender;
+        ad.IsActive = dto.IsActive;
         ad.Priority = dto.Priority;
         ad.StartDate = dto.StartDate;
         ad.EndDate = dto.EndDate;

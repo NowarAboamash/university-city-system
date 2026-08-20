@@ -11,6 +11,10 @@
   "InternalApi": {
     "ServiceKey": ""
   },
+  "AuthService": {
+    "BaseUrl": "https://university-auth-lemon.vercel.app",
+    "InternalApiKey": ""
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Information",

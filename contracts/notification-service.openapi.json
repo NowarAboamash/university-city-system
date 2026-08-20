@@ -5,56 +5,6 @@
     "version": "1.0"
   },
   "paths": {
-    "/api/device-tokens": {
-      "post": {
-        "tags": [
-          "DeviceTokens"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeviceTokenRegisterDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeviceTokenRegisterDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeviceTokenRegisterDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "DeviceTokens"
-        ],
-        "parameters": [
-          {
-            "name": "fcmToken",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
     "/api/Notifications": {
       "get": {
         "tags": [
@@ -370,25 +320,6 @@
   },
   "components": {
     "schemas": {
-      "DeviceTokenRegisterDto": {
-        "required": [
-          "fcmToken"
-        ],
-        "type": "object",
-        "properties": {
-          "fcmToken": {
-            "maxLength": 500,
-            "minLength": 1,
-            "type": "string"
-          },
-          "platform": {
-            "maxLength": 20,
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
       "InternalNotificationRequestDto": {
         "required": [
           "body",

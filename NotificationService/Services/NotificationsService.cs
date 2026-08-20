@@ -10,18 +10,18 @@ namespace NotificationService.Services
     public class NotificationsService : INotificationService
     {
         private readonly NotificationDbContext _context;
-        private readonly IDeviceTokenService _deviceTokenService;
+        private readonly IAuthServiceClient _authServiceClient;
         private readonly IPushNotificationSender _pushSender;
         private readonly ILogger<NotificationsService> _logger;
 
         public NotificationsService(
             NotificationDbContext context,
-            IDeviceTokenService deviceTokenService,
+            IAuthServiceClient authServiceClient,
             IPushNotificationSender pushSender,
             ILogger<NotificationsService> logger)
         {
             _context = context;
-            _deviceTokenService = deviceTokenService;
+            _authServiceClient = authServiceClient;
             _pushSender = pushSender;
             _logger = logger;
         }
@@ -197,34 +197,34 @@ namespace NotificationService.Services
             List<string>? targetStudentIds,
             string? targetRole)
         {
-            List<string> recipientStudentIds = targetType switch
-            {
-                NotificationTargetType.User or NotificationTargetType.Users =>
-                    targetStudentIds!.Distinct().ToList(),
-                NotificationTargetType.Role =>
-                    await _context.DeviceTokens.AsNoTracking()
-                        .Where(t => t.Role == targetRole)
-                        .Select(t => t.StudentId)
-                        .Distinct()
-                        .ToListAsync(),
-                NotificationTargetType.Broadcast =>
-                    await _context.DeviceTokens.AsNoTracking()
-                        .Select(t => t.StudentId)
-                        .Distinct()
-                        .ToListAsync(),
-                _ => []
-            };
+            List<string> recipientStudentIds;
+            Dictionary<string, string> tokenToStudentId;
 
-            var tokens = targetType switch
+            if (targetType is NotificationTargetType.User or NotificationTargetType.Users)
             {
-                NotificationTargetType.User or NotificationTargetType.Users =>
-                    await _deviceTokenService.GetTokensForStudentsAsync(recipientStudentIds),
-                NotificationTargetType.Role =>
-                    await _deviceTokenService.GetTokensForRoleAsync(targetRole!),
-                NotificationTargetType.Broadcast =>
-                    await _deviceTokenService.GetAllTokensAsync(),
-                _ => []
-            };
+                recipientStudentIds = targetStudentIds!.Distinct().ToList();
+
+                var lookup = await _authServiceClient.LookupUsersAsync(recipientStudentIds);
+                tokenToStudentId = recipientStudentIds
+                    .Where(id => lookup.TryGetValue(id, out var u) && !string.IsNullOrEmpty(u.FcmToken))
+                    .ToDictionary(id => lookup[id].FcmToken!, id => id);
+            }
+            else
+            {
+                // Role and Broadcast: AuthService only returns active users that already
+                // have a registered token, so the returned set doubles as both the
+                // recipient list and the token source.
+                var role = targetType == NotificationTargetType.Role ? targetRole : null;
+                var users = await _authServiceClient.GetFcmTokensAsync(role);
+
+                recipientStudentIds = users.Select(u => u.Id).Distinct().ToList();
+                tokenToStudentId = users
+                    .Where(u => !string.IsNullOrEmpty(u.FcmToken))
+                    .GroupBy(u => u.FcmToken!)
+                    .ToDictionary(g => g.Key, g => g.First().Id);
+            }
+
+            var tokens = tokenToStudentId.Keys.ToList();
 
             var deliveredTokens = new HashSet<string>();
             if (tokens.Count > 0)
@@ -241,13 +241,10 @@ namespace NotificationService.Services
                 }
             }
 
-            var deliveredStudentIds = deliveredTokens.Count == 0
-                ? new HashSet<string>()
-                : (await _context.DeviceTokens.AsNoTracking()
-                    .Where(t => deliveredTokens.Contains(t.FcmToken))
-                    .Select(t => t.StudentId)
-                    .ToListAsync())
-                    .ToHashSet();
+            var deliveredStudentIds = deliveredTokens
+                .Where(t => tokenToStudentId.ContainsKey(t))
+                .Select(t => tokenToStudentId[t])
+                .ToHashSet();
 
             foreach (var studentId in recipientStudentIds)
             {

@@ -16,8 +16,32 @@ builder.Services.AddDbContext<NotificationDbContext>(options =>
             .EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null)
             .CommandTimeout(60)));
 builder.Services.AddScoped<INotificationService, NotificationsService>();
-builder.Services.AddScoped<IDeviceTokenService, DeviceTokenService>();
 builder.Services.AddSingleton<IPushNotificationSender, FirebasePushNotificationSender>();
+
+var authServiceBaseUrl = Environment.GetEnvironmentVariable("AUTH_SERVICE_BASE_URL")
+    ?? builder.Configuration["AuthService:BaseUrl"];
+if (string.IsNullOrWhiteSpace(authServiceBaseUrl))
+{
+    throw new InvalidOperationException(
+        "AuthService base URL is not configured. Set the 'AUTH_SERVICE_BASE_URL' " +
+        "environment variable or 'AuthService:BaseUrl' in configuration.");
+}
+
+var authServiceApiKey = Environment.GetEnvironmentVariable("AUTH_SERVICE_INTERNAL_API_KEY")
+    ?? builder.Configuration["AuthService:InternalApiKey"];
+if (string.IsNullOrWhiteSpace(authServiceApiKey))
+{
+    throw new InvalidOperationException(
+        "AuthService internal API key is not configured. Set the 'AUTH_SERVICE_INTERNAL_API_KEY' " +
+        "environment variable or 'AuthService:InternalApiKey' in configuration.");
+}
+
+builder.Services.AddHttpClient<IAuthServiceClient, AuthServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(authServiceBaseUrl.TrimEnd('/') + "/");
+    client.DefaultRequestHeaders.Add("X-Internal-Api-Key", authServiceApiKey);
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options => options.AddJwtBearerSecurity());

@@ -8,7 +8,14 @@ All requests should go through the Gateway (`http://localhost:5067` locally), us
 |---|---|---|
 | `feedback-service.openapi.json` | FeedbackService | `/api/feedbacks`, `/api/feedbackimages` |
 | `advertising-service.openapi.json` | AdvertisingService | `/api/ads`, `/api/ad-types`, `/api/target-genders` |
-| `notification-service.openapi.json` | NotificationService | `/api/notifications`, `/api/device-tokens` |
+| `notification-service.openapi.json` | NotificationService | `/api/notifications` |
+| *(external, no local snapshot)* | AuthService (Node.js) | `/api/auth`, `/api/admin` |
+
+### AuthService is routed through the Gateway too
+
+`/api/auth/*` and `/api/admin/*` proxy straight to the real deployed AuthService (`https://university-auth-lemon.vercel.app`) in every Ocelot config (`ocelot.json`, `ocelot.docker.json`, `ocelot.Production.json` all point at the same URL — unlike our own services, AuthService has no separate local/Docker instance we control). Its Swagger doc (`https://university-auth-lemon.vercel.app/api-docs.json`) is aggregated into the Gateway's Swagger UI the same way the other services are.
+
+**`/api/internal/*` (user lookup, FCM token listing) is deliberately NOT routed through the Gateway.** Those endpoints are server-to-server only — protected by `X-Internal-Api-Key`, not a user JWT — and AuthService's own OpenAPI doc says as much ("Never call these from a browser or with a user's JWT"). Exposing the route publicly wouldn't be a security hole by itself (the key check still applies), but it's unnecessary attack surface for zero benefit: our services (`SharedKernel.Users.IUserLookupService`, NotificationService's FCM lookup) already call AuthService directly using its base URL, never through the Gateway, for exactly this reason.
 
 ### Images are Cloudinary URLs, not local paths
 
@@ -57,7 +64,7 @@ Every FeedbackService endpoint requires `Authorization: Bearer <token>` — a JW
 - Both `FeedbackImages` delete endpoints (`DELETE /api/feedbackimages/{id}` and `/by-path`) are still `admin`/`super_admin` only — a `user` cleans up their own images by deleting the parent feedback (cascades), not by deleting individual images directly.
 - The public key is read from the `JWT_ACCESS_PUBLIC_KEY` environment variable first, falling back to `Jwt:AccessPublicKey` in `appsettings.json` (the key currently committed there is AuthService's real public key — safe to commit, it's the public half of the pair).
 
-**Student/admin names on `GET /api/feedbacks`**: `studentName` and `repliedByAdminName` are populated from AuthService's `POST /api/internal/users/lookup` (one batched call per page, all unique `studentId`/`repliedByAdminId` values on that page — never one call per item). `studentName` stays `null` for anonymous feedback even though `studentId` is known internally — anonymity is enforced at display time, not by hiding the id from the DB. If AuthService is unreachable or rejects the call, the whole request still succeeds — names just come back `null` (this is `SharedKernel.Users.IUserLookupService`, same never-throws design as `INotificationPublisher`). Needs `AuthService:BaseUrl`/`AUTH_SERVICE_BASE_URL` and `AuthService:InternalApiKey`/`AUTH_SERVICE_INTERNAL_API_KEY` configured — **the real API key isn't set yet** (waiting on it from whoever owns AuthService), so this currently degrades gracefully to `null` names in every environment until that's supplied. `GET /api/feedbacks/{id}` and `/mine` don't have this enrichment yet — only the list endpoint, per what was actually asked for.
+**Student/admin names on `GET /api/feedbacks`**: `studentName` and `repliedByAdminName` are populated from AuthService's `POST /api/internal/users/lookup` (one batched call per page, all unique `studentId`/`repliedByAdminId` values on that page — never one call per item). `studentName` stays `null` for anonymous feedback even though `studentId` is known internally — anonymity is enforced at display time, not by hiding the id from the DB. If AuthService is unreachable or rejects the call, the whole request still succeeds — names just come back `null` (this is `SharedKernel.Users.IUserLookupService`, same never-throws design as `INotificationPublisher`). Needs `AuthService:BaseUrl`/`AUTH_SERVICE_BASE_URL` and `AuthService:InternalApiKey`/`AUTH_SERVICE_INTERNAL_API_KEY` configured — the real key is set locally now and verified end-to-end (a real, non-anonymous feedback row correctly returned its actual `studentName` from AuthService). `GET /api/feedbacks/{id}` and `/mine` don't have this enrichment yet — only the list endpoint, per what was actually asked for.
 
 ### Authentication (AdvertisingService)
 
@@ -73,12 +80,12 @@ Writes require `Authorization: Bearer <token>` and role `admin`/`super_admin` �
 
 New service, same structure as FeedbackService (Controllers/DTOs/Models/Data/Interfaces/Services/Enums/Migrations, JWT auth via SharedKernel, CORS, always-on Swagger, Dockerfile). Pushes to mobile via Firebase Cloud Messaging (FCM). Its own DB (`NotificationServiceDb`), independent of FeedbackService/AdvertisingService.
 
-**Data model**: `Notification` (the composed message — title/body/optional `data` JSON payload/target/who created it/when sent), `NotificationRecipient` (per-user delivery + read-status row, one per targeted student), `DeviceToken` (FCM token registry, keyed by StudentId, with the role cached at registration time for role-based targeting).
+**Data model**: `Notification` (the composed message — title/body/optional `data` JSON payload/target/who created it/when sent), `NotificationRecipient` (per-user delivery + read-status row, one per targeted student). There is no local device-token table — AuthService is the single source of truth for FCM tokens (see below).
 
 **Roles** (same `user`/`admin`/`super_admin` model as FeedbackService):
 - Composing/managing notifications (`GET`/`POST`/`PUT`/`DELETE /api/notifications`, `GET /api/notifications/{id}`) is **admin/super_admin only** — this is a broadcast tool, not something a `user` posts.
 - **Any role** can read its own inbox (`GET /api/notifications/mine`, paginated) and mark an item read (`POST /api/notifications/{id}/read`) — id always comes from the token, same pattern as FeedbackService's `/mine`.
-- `POST /api/device-tokens` (register/refresh the caller's own FCM token) and `DELETE /api/device-tokens?fcmToken=...` (unregister, e.g. on logout) — any authenticated role, mobile app calls these directly.
+- There's no device-token registration endpoint on NotificationService anymore. The mobile app sends its FCM token to AuthService (at login/registration), not here.
 
 **Sending** (`POST /api/notifications`, admin/super_admin, JWT-authenticated):
 ```json
@@ -91,7 +98,9 @@ New service, same structure as FeedbackService (Controllers/DTOs/Models/Data/Int
   "targetRole": null
 }
 ```
-`targetType`: `0` = User (exactly one id in `targetStudentIds`), `1` = Users (one or more ids), `2` = Role (`targetRole` required, e.g. `"user"`), `3` = Broadcast (everyone with a registered device token). For `Role`/`Broadcast`, the recipient list is derived from `DeviceTokens` — a student who has never registered a device token won't get an inbox entry either, since NotificationService doesn't own the full student roster (that lives in AuthService). For `User`/`Users`, the caller-supplied ids always get an inbox entry regardless of whether they have a registered token (push just won't fire for them).
+`targetType`: `0` = User (exactly one id in `targetStudentIds`), `1` = Users (one or more ids), `2` = Role (`targetRole` required, e.g. `"user"`), `3` = Broadcast (everyone with a registered device token). For `Role`/`Broadcast`, both the recipient list and the FCM tokens come from AuthService's `GET /api/internal/users/fcm-tokens` (active users only, already filtered to those with a token) — a student who never registered a device token won't get an inbox entry for these. For `User`/`Users`, the caller-supplied ids always get an inbox entry regardless of whether they have a registered token (push just won't fire for them); tokens for the push itself come from AuthService's `POST /api/internal/users/lookup`.
+
+**FCM tokens live in AuthService, not here.** NotificationService calls AuthService's internal endpoints (`X-Internal-Api-Key` header) on every send instead of keeping its own device-token table — one less place a token can go stale. Needs `AuthService:BaseUrl`/`AUTH_SERVICE_BASE_URL` and `AuthService:InternalApiKey`/`AUTH_SERVICE_INTERNAL_API_KEY` configured (same env-var-first-then-config pattern as everywhere else); the app fails fast at startup if either is missing. Like `IUserLookupService`, a failed AuthService call never throws — it just means fewer/no recipients get a push for that send (they still get an in-app inbox entry where applicable).
 
 **The "public function any service can use"** — this is `SharedKernel.Notifications.INotificationPublisher`, not a REST call you build by hand. Any service that references SharedKernel gets it:
 
