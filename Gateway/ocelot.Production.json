@@ -41,6 +41,46 @@
       "SwaggerKey": "feedback"
     },
     {
+      "DownstreamPathTemplate": "/api/ads",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "advertisingservice001.runasp.net", "Port": 80 }
+      ],
+      "UpstreamPathTemplate": "/api/ads",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "advertising"
+    },
+    {
+      "DownstreamPathTemplate": "/api/ads/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "advertisingservice001.runasp.net", "Port": 80 }
+      ],
+      "UpstreamPathTemplate": "/api/ads/{everything}",
+      "UpstreamHttpMethod": [ "GET", "PUT", "DELETE" ],
+      "SwaggerKey": "advertising"
+    },
+    {
+      "DownstreamPathTemplate": "/api/ad-types",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "advertisingservice001.runasp.net", "Port": 80 }
+      ],
+      "UpstreamPathTemplate": "/api/ad-types",
+      "UpstreamHttpMethod": [ "GET" ],
+      "SwaggerKey": "advertising"
+    },
+    {
+      "DownstreamPathTemplate": "/api/target-genders",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "advertisingservice001.runasp.net", "Port": 80 }
+      ],
+      "UpstreamPathTemplate": "/api/target-genders",
+      "UpstreamHttpMethod": [ "GET" ],
+      "SwaggerKey": "advertising"
+    },
+    {
       "DownstreamPathTemplate": "/api/notifications",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -61,14 +101,24 @@
       "SwaggerKey": "notification"
     },
     {
-      "DownstreamPathTemplate": "/api/device-tokens",
-      "DownstreamScheme": "http",
+      "DownstreamPathTemplate": "/api/auth/{everything}",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
-        { "Host": "notificationservice001.runasp.net", "Port": 80 }
+        { "Host": "university-auth-lemon.vercel.app", "Port": 443 }
       ],
-      "UpstreamPathTemplate": "/api/device-tokens",
-      "UpstreamHttpMethod": [ "POST", "DELETE" ],
-      "SwaggerKey": "notification"
+      "UpstreamPathTemplate": "/api/auth/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PATCH" ],
+      "SwaggerKey": "auth"
+    },
+    {
+      "DownstreamPathTemplate": "/api/admin/{everything}",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        { "Host": "university-auth-lemon.vercel.app", "Port": 443 }
+      ],
+      "UpstreamPathTemplate": "/api/admin/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PATCH", "DELETE" ],
+      "SwaggerKey": "auth"
     }
   ],
   "SwaggerEndPoints": [
@@ -79,6 +129,26 @@
           "Name": "Feedback API",
           "Version": "v1",
           "Url": "http://feedbackservice001.runasp.net/swagger/v1/swagger.json"
+        }
+      ]
+    },
+    {
+      "Key": "auth",
+      "Config": [
+        {
+          "Name": "Auth API",
+          "Version": "v1",
+          "Url": "https://university-auth-lemon.vercel.app/api-docs.json"
+        }
+      ]
+    },
+    {
+      "Key": "advertising",
+      "Config": [
+        {
+          "Name": "Advertising API",
+          "Version": "v1",
+          "Url": "http://advertisingservice001.runasp.net/swagger/v1/swagger.json"
         }
       ]
     },

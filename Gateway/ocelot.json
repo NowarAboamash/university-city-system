@@ -101,14 +101,24 @@
       "SwaggerKey": "notification"
     },
     {
-      "DownstreamPathTemplate": "/api/device-tokens",
-      "DownstreamScheme": "http",
+      "DownstreamPathTemplate": "/api/auth/{everything}",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5081 }
+        { "Host": "university-auth-lemon.vercel.app", "Port": 443 }
       ],
-      "UpstreamPathTemplate": "/api/device-tokens",
-      "UpstreamHttpMethod": [ "POST", "DELETE" ],
-      "SwaggerKey": "notification"
+      "UpstreamPathTemplate": "/api/auth/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PATCH" ],
+      "SwaggerKey": "auth"
+    },
+    {
+      "DownstreamPathTemplate": "/api/admin/{everything}",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        { "Host": "university-auth-lemon.vercel.app", "Port": 443 }
+      ],
+      "UpstreamPathTemplate": "/api/admin/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PATCH", "DELETE" ],
+      "SwaggerKey": "auth"
     }
   ],
   "SwaggerEndPoints": [
@@ -119,6 +129,16 @@
           "Name": "Feedback API",
           "Version": "v1",
           "Url": "http://localhost:5069/swagger/v1/swagger.json"
+        }
+      ]
+    },
+    {
+      "Key": "auth",
+      "Config": [
+        {
+          "Name": "Auth API",
+          "Version": "v1",
+          "Url": "https://university-auth-lemon.vercel.app/api-docs.json"
         }
       ]
     },
