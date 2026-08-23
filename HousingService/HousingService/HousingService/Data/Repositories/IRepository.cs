@@ -1,0 +1,99 @@
+using HousingService.Domain.Entities;
+using HousingService.Domain.Enums;
+
+namespace HousingService.Data.Repositories;
+
+public interface IRepository<TEntity> where TEntity : class
+{
+    Task<TEntity?> GetByIdAsync(int id);
+    Task<IEnumerable<TEntity>> GetAllAsync();
+    Task AddAsync(TEntity entity);
+    Task AddRangeAsync(IEnumerable<TEntity> entities);
+    void Update(TEntity entity);
+    void Remove(TEntity entity);
+    void RemoveRange(IEnumerable<TEntity> entities);
+    Task SaveChangesAsync();
+}
+
+public interface IBuildingRepository : IRepository<Building>
+{
+    Task<Building?> GetByNameAsync(string name);
+    Task<IEnumerable<Building>> GetActiveAsync();
+}
+
+public interface IRoomRepository : IRepository<Room>
+{
+    Task<IEnumerable<Room>> GetByBuildingIdAsync(int buildingId);
+    Task<Room?> GetByBuildingAndRoomNumberAsync(int buildingId, string roomNumber);
+    Task<IEnumerable<Room>> GetAvailableRoomsAsync(int buildingId);
+    Task<Room?> GetByIdWithOccupantsAsync(int id);
+    Task<IEnumerable<Room>> GetByBuildingIdWithOccupantsAsync(int buildingId);
+    Task<IEnumerable<Room>> GetAllWithOccupantsAsync();
+}
+
+public interface IHousingCycleRepository : IRepository<HousingCycle>
+{
+    Task<HousingCycle?> GetOpenAsync();
+    Task<HousingCycle?> GetByNameAsync(string name);
+}
+
+public interface IHousingRequestRepository : IRepository<HousingRequest>
+{
+    Task<IEnumerable<HousingRequest>> GetByStudentIdAsync(string studentId);
+    Task<HousingRequest?> GetByStudentAndCycleAsync(string studentId, int housingCycleId);
+    Task<IEnumerable<HousingRequest>> GetByStatusAsync(HousingRequestStatus status);
+    Task<IEnumerable<HousingRequest>> GetByGroupIdAsync(int groupId);
+    Task<HousingRequest?> GetByIdWithDocumentsAsync(int id);
+    Task<IEnumerable<HousingRequest>> GetAllWithFiltersAsync(int? housingCycleId, int? governorateId, HousingRequestStatus? status, AdmissionDecisionStatus? admissionStatus);
+}
+
+public interface IHousingRequestDocumentRepository : IRepository<HousingRequestDocument>
+{
+    Task<IEnumerable<HousingRequestDocument>> GetByHousingRequestIdAsync(int requestId);
+    Task<IEnumerable<HousingRequestDocument>> GetByTypeAsync(DocumentType type);
+    Task<IEnumerable<HousingRequestDocument>> GetByReviewStatusAsync(DocumentReviewStatus status);
+    Task<HousingRequestDocument?> GetByIdWithRequestAsync(int id);
+}
+
+public interface IGovernorateRepository : IRepository<Governorate>
+{
+    Task<Governorate?> GetByNameAsync(string name);
+}
+
+public interface IHousingGroupRepository : IRepository<HousingGroup>
+{
+    Task<HousingGroup?> GetByLeaderIdAsync(string leaderId);
+    Task<IEnumerable<HousingGroup>> GetByStatusAsync(HousingGroupStatus status);
+    Task<IEnumerable<HousingGroup>> GetGroupsWithMembersAsync();
+    Task<HousingGroup?> GetByCodeAsync(string code);
+    Task<HousingGroup?> GetByIdWithDetailsAsync(int id);
+    Task<IEnumerable<HousingGroup>> GetAllWithDetailsAsync(int? housingCycleId);
+    Task<HousingGroup?> GetByIdWithMembersAndDecisionsAsync(int id);
+}
+
+public interface IGroupInvitationRepository : IRepository<GroupInvitation>
+{
+    Task<IEnumerable<GroupInvitation>> GetByInvitedStudentIdAsync(string studentId);
+    Task<IEnumerable<GroupInvitation>> GetByGroupIdAsync(int groupId);
+    Task<IEnumerable<GroupInvitation>> GetPendingInvitationsAsync(string studentId);
+    Task<GroupInvitation?> GetByGroupAndStudentAsync(int groupId, string studentId);
+}
+
+public interface IAdmissionDecisionRepository : IRepository<AdmissionDecision>
+{
+    Task<AdmissionDecision?> GetByHousingRequestIdAsync(int requestId);
+    Task<IEnumerable<AdmissionDecision>> GetByStatusAsync(AdmissionDecisionStatus status);
+    Task<IEnumerable<AdmissionDecision>> GetAcceptedDecisionsAsync();
+}
+
+public interface IAllocationRepository : IRepository<Allocation>
+{
+    /// <summary>Active (not vacated) allocation for this request, if any.</summary>
+    Task<Allocation?> GetByHousingRequestIdAsync(int requestId);
+    /// <summary>Active (not vacated) allocation for this group, if any.</summary>
+    Task<Allocation?> GetByGroupIdAsync(int groupId);
+    Task<IEnumerable<Allocation>> GetByRoomIdAsync(int roomId);
+    Task<Allocation?> GetByIdWithDetailsAsync(int id);
+    Task<IEnumerable<Allocation>> GetAllWithDetailsAsync(int? buildingId, int? roomId);
+    Task<IEnumerable<Allocation>> GetActiveByBuildingIdAsync(int buildingId);
+}

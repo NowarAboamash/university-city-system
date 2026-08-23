@@ -101,6 +101,146 @@
       "SwaggerKey": "notification"
     },
     {
+      "DownstreamPathTemplate": "/api/buildings",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/buildings",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/buildings/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/buildings/{everything}",
+      "UpstreamHttpMethod": [ "GET", "PUT", "POST" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/buildings/{buildingId}/rooms",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/buildings/{buildingId}/rooms",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/buildings/{buildingId}/rooms/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/buildings/{buildingId}/rooms/{everything}",
+      "UpstreamHttpMethod": [ "GET", "PUT" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/housing-cycles",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/housing-cycles",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/housing-cycles/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/housing-cycles/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/governorates",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/governorates",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/governorates/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/governorates/{everything}",
+      "UpstreamHttpMethod": [ "GET", "PUT" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/housing-requests",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/housing-requests",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/housing-requests/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/housing-requests/{everything}",
+      "UpstreamHttpMethod": [ "GET", "PUT", "POST" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/housing-groups",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/housing-groups",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/housing-groups/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/housing-groups/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/allocations",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/allocations",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/allocations/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5054 }
+      ],
+      "UpstreamPathTemplate": "/api/allocations/{everything}",
+      "UpstreamHttpMethod": [ "GET" ],
+      "SwaggerKey": "housing"
+    },
+    {
       "DownstreamPathTemplate": "/api/auth/{everything}",
       "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
@@ -159,6 +299,16 @@
           "Name": "Notification API",
           "Version": "v1",
           "Url": "http://localhost:5081/swagger/v1/swagger.json"
+        }
+      ]
+    },
+    {
+      "Key": "housing",
+      "Config": [
+        {
+          "Name": "Housing API",
+          "Version": "v1",
+          "Url": "http://localhost:5054/swagger/v1/swagger.json"
         }
       ]
     }
