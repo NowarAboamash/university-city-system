@@ -4,13 +4,12 @@ EXPOSE 8080
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY ["FeedbackService.csproj", "./"]
-RUN dotnet restore "FeedbackService.csproj"
 COPY . .
-RUN dotnet build "FeedbackService.csproj" -c Release -o /app/build
+RUN dotnet restore "FeedbackService/FeedbackService.csproj"
+RUN dotnet build "FeedbackService/FeedbackService.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "FeedbackService.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "FeedbackService/FeedbackService.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app

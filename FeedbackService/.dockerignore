@@ -1,7 +1,0 @@
-**/bin/
-**/obj/
-**/.vs/
-**/wwwroot/uploads/
-*.user
-Dockerfile
-.dockerignore

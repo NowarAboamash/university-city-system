@@ -18,7 +18,8 @@ services:
 
   feedbackservice:
     build:
-      context: ./FeedbackService
+      context: .
+      dockerfile: FeedbackService/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=FeedbackServiceDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;"
@@ -34,7 +35,8 @@ services:
 
   advertisingservice:
     build:
-      context: ./AdvertisingService
+      context: .
+      dockerfile: AdvertisingService/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=AdvertisingServiceDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;"
@@ -52,7 +54,8 @@ services:
 
   notificationservice:
     build:
-      context: ./NotificationService
+      context: .
+      dockerfile: NotificationService/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=NotificationServiceDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;"
@@ -68,7 +71,8 @@ services:
 
   housingservice:
     build:
-      context: ./HousingService/HousingService
+      context: .
+      dockerfile: HousingService/HousingService/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=HousingServiceDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;"

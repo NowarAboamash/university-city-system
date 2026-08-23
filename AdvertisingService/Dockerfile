@@ -4,13 +4,12 @@ EXPOSE 8080
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY ["AdvertisingService.csproj", "./"]
-RUN dotnet restore "AdvertisingService.csproj"
 COPY . .
-RUN dotnet build "AdvertisingService.csproj" -c Release -o /app/build
+RUN dotnet restore "AdvertisingService/AdvertisingService.csproj"
+RUN dotnet build "AdvertisingService/AdvertisingService.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "AdvertisingService.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "AdvertisingService/AdvertisingService.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app

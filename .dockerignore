@@ -3,5 +3,5 @@
 **/.vs/
 **/wwwroot/uploads/
 *.user
-Dockerfile
-.dockerignore
+.git/
+.gitignore
