@@ -7,7 +7,7 @@ namespace HousingService.Controllers;
 
 [ApiController]
 [Route("api/buildings")]
-[Authorize(Roles = AdminRoles)]
+[Authorize]
 public class BuildingsController : ControllerBase
 {
     private const string AdminRoles = "admin,super_admin";
@@ -21,6 +21,7 @@ public class BuildingsController : ControllerBase
         _evacuationService = evacuationService;
     }
 
+    [Authorize(Roles = AdminRoles)]
     [HttpPost]
     public async Task<ActionResult<BuildingDto>> Create(CreateBuildingDto dto)
     {
@@ -35,6 +36,7 @@ public class BuildingsController : ControllerBase
         }
     }
 
+    [Authorize(Roles = AdminRoles)]
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<BuildingDto>>> GetAll()
     {
@@ -42,6 +44,17 @@ public class BuildingsController : ControllerBase
         return Ok(buildings);
     }
 
+    // Minimal id+name list any authenticated role can read — e.g. so a student's app can
+    // let them pick their previous building when submitting a housing request, without
+    // exposing the full admin management view (gender/status/capacity/description).
+    [HttpGet("lookup")]
+    public async Task<ActionResult<IReadOnlyList<BuildingLookupDto>>> GetLookup()
+    {
+        var buildings = await _buildingService.GetLookupAsync();
+        return Ok(buildings);
+    }
+
+    [Authorize(Roles = AdminRoles)]
     [HttpGet("{id:int}")]
     public async Task<ActionResult<BuildingDto>> GetById(int id)
     {
@@ -49,6 +62,7 @@ public class BuildingsController : ControllerBase
         return building is null ? NotFound() : Ok(building);
     }
 
+    [Authorize(Roles = AdminRoles)]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, UpdateBuildingDto dto)
     {
@@ -63,6 +77,7 @@ public class BuildingsController : ControllerBase
         }
     }
 
+    [Authorize(Roles = AdminRoles)]
     [HttpPost("{id:int}/evacuation/announce")]
     public async Task<ActionResult<int>> AnnounceEvacuation(int id, AnnounceEvacuationDto dto)
     {
@@ -70,6 +85,7 @@ public class BuildingsController : ControllerBase
         return notifiedCount is null ? NotFound() : Ok(new { notifiedCount });
     }
 
+    [Authorize(Roles = AdminRoles)]
     [HttpPost("{id:int}/evacuation/execute")]
     public async Task<ActionResult<EvacuationResultDto>> ExecuteEvacuation(int id, ExecuteEvacuationDto dto)
     {

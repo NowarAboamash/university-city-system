@@ -76,7 +76,7 @@ public interface IGroupInvitationRepository : IRepository<GroupInvitation>
     Task<IEnumerable<GroupInvitation>> GetByInvitedStudentIdAsync(string studentId);
     Task<IEnumerable<GroupInvitation>> GetByGroupIdAsync(int groupId);
     Task<IEnumerable<GroupInvitation>> GetPendingInvitationsAsync(string studentId);
-    Task<GroupInvitation?> GetByGroupAndStudentAsync(int groupId, string studentId);
+    Task<GroupInvitation?> GetPendingByGroupAndStudentAsync(int groupId, string studentId);
 }
 
 public interface IAdmissionDecisionRepository : IRepository<AdmissionDecision>

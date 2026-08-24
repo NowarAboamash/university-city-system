@@ -8,6 +8,8 @@ public class GroupInvitationDto
 
     public string InvitedStudentId { get; set; } = string.Empty;
 
+    public string? InvitedStudentName { get; set; }
+
     public InvitationStatus Status { get; set; }
 
     public DateTime SentAt { get; set; }

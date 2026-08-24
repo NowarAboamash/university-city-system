@@ -349,10 +349,10 @@ public class GroupInvitationRepository : Repository<GroupInvitation>, IGroupInvi
             .ToListAsync();
     }
 
-    public async Task<GroupInvitation?> GetByGroupAndStudentAsync(int groupId, string studentId)
+    public async Task<GroupInvitation?> GetPendingByGroupAndStudentAsync(int groupId, string studentId)
     {
         return await _dbSet
-            .FirstOrDefaultAsync(i => i.HousingGroupId == groupId && i.InvitedStudentId == studentId);
+            .FirstOrDefaultAsync(i => i.HousingGroupId == groupId && i.InvitedStudentId == studentId && i.Status == InvitationStatus.Pending);
     }
 }
 

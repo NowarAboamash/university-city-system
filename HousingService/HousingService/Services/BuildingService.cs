@@ -73,6 +73,14 @@ public class BuildingService : IBuildingService
         return true;
     }
 
+    public async Task<IReadOnlyList<BuildingLookupDto>> GetLookupAsync()
+    {
+        var buildings = await _buildingRepository.GetAllAsync();
+        return buildings
+            .Select(b => new BuildingLookupDto { Id = b.Id, Name = b.Name })
+            .ToList();
+    }
+
     private async Task ValidateAsync(string name, int standardRoomCapacity, int? excludingId = null)
     {
         if (string.IsNullOrWhiteSpace(name))

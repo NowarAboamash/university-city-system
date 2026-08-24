@@ -11,4 +11,6 @@ public interface IBuildingService
     Task<BuildingDto?> GetByIdAsync(int id);
 
     Task<bool> UpdateAsync(int id, UpdateBuildingDto dto);
+
+    Task<IReadOnlyList<BuildingLookupDto>> GetLookupAsync();
 }

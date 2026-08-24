@@ -3,6 +3,8 @@ using HousingService.Domain.Entities;
 using HousingService.Domain.Enums;
 using HousingService.DTOs;
 using HousingService.Interfaces;
+using SharedKernel.Notifications;
+using SharedKernel.Users;
 
 namespace HousingService.Services;
 
@@ -12,6 +14,8 @@ public class HousingGroupService : IHousingGroupService
     private readonly IGroupInvitationRepository _invitationRepository;
     private readonly IHousingRequestRepository _requestRepository;
     private readonly IHousingCycleRepository _cycleRepository;
+    private readonly IUserLookupService _userLookupService;
+    private readonly INotificationPublisher _notificationPublisher;
     private readonly TimeProvider _timeProvider;
 
     public HousingGroupService(
@@ -19,12 +23,16 @@ public class HousingGroupService : IHousingGroupService
         IGroupInvitationRepository invitationRepository,
         IHousingRequestRepository requestRepository,
         IHousingCycleRepository cycleRepository,
+        IUserLookupService userLookupService,
+        INotificationPublisher notificationPublisher,
         TimeProvider timeProvider)
     {
         _groupRepository = groupRepository;
         _invitationRepository = invitationRepository;
         _requestRepository = requestRepository;
         _cycleRepository = cycleRepository;
+        _userLookupService = userLookupService;
+        _notificationPublisher = notificationPublisher;
         _timeProvider = timeProvider;
     }
 
@@ -68,7 +76,7 @@ public class HousingGroupService : IHousingGroupService
         await _groupRepository.AddAsync(group);
         await _groupRepository.SaveChangesAsync();
 
-        return MapToDto(group, includeInvitations: true);
+        return await MapToDtoAsync(group, includeInvitations: true);
     }
 
     public async Task<HousingGroupDto?> GetMineAsync(string studentId)
@@ -86,19 +94,25 @@ public class HousingGroupService : IHousingGroupService
         }
 
         var group = await _groupRepository.GetByIdWithDetailsAsync(request.HousingGroupId.Value);
-        return group is null ? null : MapToDto(group, includeInvitations: group.LeaderId == studentId);
+        return group is null ? null : await MapToDtoAsync(group, includeInvitations: group.LeaderId == studentId);
     }
 
     public async Task<HousingGroupDto?> GetByIdAsync(int id)
     {
         var group = await _groupRepository.GetByIdWithDetailsAsync(id);
-        return group is null ? null : MapToDto(group, includeInvitations: true);
+        return group is null ? null : await MapToDtoAsync(group, includeInvitations: true);
     }
 
     public async Task<IReadOnlyList<HousingGroupDto>> GetAllAsync(int? housingCycleId)
     {
-        var groups = await _groupRepository.GetAllWithDetailsAsync(housingCycleId);
-        return groups.Select(g => MapToDto(g, includeInvitations: true)).ToList();
+        var groups = (await _groupRepository.GetAllWithDetailsAsync(housingCycleId)).ToList();
+        var result = new List<HousingGroupDto>(groups.Count);
+        foreach (var group in groups)
+        {
+            result.Add(await MapToDtoAsync(group, includeInvitations: true));
+        }
+
+        return result;
     }
 
     public async Task<GroupInvitationDto?> JoinByCodeAsync(string studentId, JoinHousingGroupDto dto)
@@ -130,8 +144,8 @@ public class HousingGroupService : IHousingGroupService
             throw new ArgumentException("You must be the same gender as the group's leader to join.");
         }
 
-        var existingInvitation = await _invitationRepository.GetByGroupAndStudentAsync(group.Id, studentId);
-        if (existingInvitation is { Status: InvitationStatus.Pending })
+        var existingPending = await _invitationRepository.GetPendingByGroupAndStudentAsync(group.Id, studentId);
+        if (existingPending is not null)
         {
             throw new ArgumentException("You already have a pending join request for this group.");
         }
@@ -156,10 +170,23 @@ public class HousingGroupService : IHousingGroupService
         await _invitationRepository.AddAsync(invitation);
         await _invitationRepository.SaveChangesAsync();
 
+        var names = await _userLookupService.LookupUsersAsync([studentId]);
+        names.TryGetValue(studentId, out var joinerInfo);
+
+        var data = System.Text.Json.JsonSerializer.Serialize(new { type = "group_join_request", relatedId = group.Id });
+        await _notificationPublisher.NotifyUserAsync(
+            group.LeaderId,
+            "طلب انضمام جديد",
+            joinerInfo is null
+                ? "في طالب قدّم طلب انضمام لغروبك."
+                : $"{joinerInfo.FullName} قدّم طلب انضمام لغروبك.",
+            data);
+
         return new GroupInvitationDto
         {
             Id = invitation.Id,
             InvitedStudentId = invitation.InvitedStudentId,
+            InvitedStudentName = joinerInfo?.FullName,
             Status = invitation.Status,
             SentAt = invitation.SentAt
         };
@@ -340,8 +367,29 @@ public class HousingGroupService : IHousingGroupService
         throw new InvalidOperationException("Failed to generate a unique group code. Please try again.");
     }
 
-    private static HousingGroupDto MapToDto(HousingGroup group, bool includeInvitations)
+    private async Task<HousingGroupDto> MapToDtoAsync(HousingGroup group, bool includeInvitations)
     {
+        List<GroupInvitationDto>? pendingInvitations = null;
+
+        if (includeInvitations)
+        {
+            var pending = group.Invitations.Where(i => i.Status == InvitationStatus.Pending).ToList();
+            var names = await _userLookupService.LookupUsersAsync(pending.Select(i => i.InvitedStudentId).ToList());
+
+            pendingInvitations = pending.Select(i =>
+            {
+                names.TryGetValue(i.InvitedStudentId, out var info);
+                return new GroupInvitationDto
+                {
+                    Id = i.Id,
+                    InvitedStudentId = i.InvitedStudentId,
+                    InvitedStudentName = info?.FullName,
+                    Status = i.Status,
+                    SentAt = i.SentAt
+                };
+            }).ToList();
+        }
+
         return new HousingGroupDto
         {
             Id = group.Id,
@@ -353,17 +401,7 @@ public class HousingGroupService : IHousingGroupService
             MemberStudentIds = group.Members.Select(m => m.StudentId).ToList(),
             Description = group.Description,
             CreatedAt = group.CreatedAt,
-            PendingInvitations = includeInvitations
-                ? group.Invitations
-                    .Where(i => i.Status == InvitationStatus.Pending)
-                    .Select(i => new GroupInvitationDto
-                    {
-                        Id = i.Id,
-                        InvitedStudentId = i.InvitedStudentId,
-                        Status = i.Status,
-                        SentAt = i.SentAt
-                    }).ToList()
-                : null
+            PendingInvitations = pendingInvitations
         };
     }
 }

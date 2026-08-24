@@ -1,4 +1,5 @@
 using HousingService.Domain.Entities;
+using HousingService.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace HousingService.Data;
@@ -36,6 +37,7 @@ public class HousingDbContext : DbContext
                 .HasForeignKey(r => r.BuildingId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasData(GetSeedBuildings());
         });
 
         // Configure Room entity
@@ -48,6 +50,7 @@ public class HousingDbContext : DbContext
                 .WithOne(a => a.Room)
                 .HasForeignKey(a => a.RoomId)
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasData(GetSeedRooms());
         });
 
         // Configure HousingRequest entity
@@ -135,7 +138,12 @@ public class HousingDbContext : DbContext
             entity.Property(e => e.InvitedByStudentId).IsRequired().HasMaxLength(100);
             entity.HasIndex(e => e.InvitedStudentId);
             entity.HasIndex(e => e.Status);
-            entity.HasIndex(e => new { e.HousingGroupId, e.InvitedStudentId }).IsUnique();
+            // Only PENDING invitations must be unique per (group, student) — a student who
+            // was rejected (or cancelled) must be able to request to join again later, which
+            // means a new row for the same pair, not an update of the old one (keeps history).
+            entity.HasIndex(e => new { e.HousingGroupId, e.InvitedStudentId })
+                .IsUnique()
+                .HasFilter("[Status] = 0");
         });
 
         // Configure AdmissionDecision entity
@@ -180,5 +188,62 @@ public class HousingDbContext : DbContext
             entity.HasIndex(e => e.Name).IsUnique();
             entity.HasData(new Governorate { Id = 1, Name = "حلب", CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) });
         });
+    }
+
+    // Simulation of Aleppo University's university city: 20 buildings (1-10 female, 11-20 male),
+    // each with 6 floors of 44 rooms apiece, numbered {floor}{01-44} (e.g. 101..144, 201..244, ...).
+    private const int SeedBuildingCount = 20;
+    private const int SeedFloorsPerBuilding = 6;
+    private const int SeedRoomsPerFloor = 44;
+    private static readonly DateTime SeedTimestamp = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+    private static Building[] GetSeedBuildings()
+    {
+        var buildings = new Building[SeedBuildingCount];
+
+        for (var buildingId = 1; buildingId <= SeedBuildingCount; buildingId++)
+        {
+            buildings[buildingId - 1] = new Building
+            {
+                Id = buildingId,
+                Name = buildingId.ToString(),
+                Gender = buildingId <= 10 ? Gender.Female : Gender.Male,
+                Status = BuildingStatus.Active,
+                FloorsCount = SeedFloorsPerBuilding,
+                StandardRoomCapacity = 4,
+                CreatedAt = SeedTimestamp
+            };
+        }
+
+        return buildings;
+    }
+
+    private static Room[] GetSeedRooms()
+    {
+        var rooms = new Room[SeedBuildingCount * SeedFloorsPerBuilding * SeedRoomsPerFloor];
+        var roomId = 1;
+
+        for (var buildingId = 1; buildingId <= SeedBuildingCount; buildingId++)
+        {
+            for (var floor = 1; floor <= SeedFloorsPerBuilding; floor++)
+            {
+                for (var roomIndex = 1; roomIndex <= SeedRoomsPerFloor; roomIndex++)
+                {
+                    rooms[roomId - 1] = new Room
+                    {
+                        Id = roomId,
+                        BuildingId = buildingId,
+                        RoomNumber = $"{floor}{roomIndex:D2}",
+                        Floor = floor,
+                        CurrentOccupancy = 0,
+                        Status = RoomStatus.Available,
+                        CreatedAt = SeedTimestamp
+                    };
+                    roomId++;
+                }
+            }
+        }
+
+        return rooms;
     }
 }

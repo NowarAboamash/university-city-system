@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using SharedKernel.Auth;
 using SharedKernel.Media;
 using SharedKernel.Notifications;
+using SharedKernel.Users;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +39,7 @@ builder.Services.AddScoped<IAllocationService, AllocationService>();
 builder.Services.AddScoped<IBuildingEvacuationService, BuildingEvacuationService>();
 builder.Services.AddCloudinaryImageUploader();
 builder.Services.AddSharedNotificationPublisher(builder.Configuration, "HousingService");
+builder.Services.AddAuthServiceUserLookup(builder.Configuration);
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options => options.AddJwtBearerSecurity());
