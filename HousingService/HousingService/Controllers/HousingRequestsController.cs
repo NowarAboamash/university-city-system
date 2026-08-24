@@ -13,7 +13,7 @@ namespace HousingService.Controllers;
 public class HousingRequestsController : ControllerBase
 {
     private const string AdminRoles = "admin,super_admin";
-    private const string StudentRole = "user";
+    private const string StudentRole = "student";
 
     private readonly IHousingRequestService _requestService;
 

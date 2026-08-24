@@ -62,7 +62,7 @@ public class AdvertisementService : IAdvertisementService
         // never breaks ad creation.
         var data = JsonSerializer.Serialize(new { adId = advertisement.Id });
         await _notificationPublisher.NotifyRoleAsync(
-            "user",
+            "student",
             "إعلان جديد",
             advertisement.Title,
             data);
