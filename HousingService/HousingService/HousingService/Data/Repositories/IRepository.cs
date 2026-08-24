@@ -1,5 +1,6 @@
 using HousingService.Domain.Entities;
 using HousingService.Domain.Enums;
+using HousingService.DTOs;
 
 namespace HousingService.Data.Repositories;
 
@@ -44,7 +45,7 @@ public interface IHousingRequestRepository : IRepository<HousingRequest>
     Task<IEnumerable<HousingRequest>> GetByStatusAsync(HousingRequestStatus status);
     Task<IEnumerable<HousingRequest>> GetByGroupIdAsync(int groupId);
     Task<HousingRequest?> GetByIdWithDocumentsAsync(int id);
-    Task<IEnumerable<HousingRequest>> GetAllWithFiltersAsync(int? housingCycleId, int? governorateId, HousingRequestStatus? status, AdmissionDecisionStatus? admissionStatus);
+    Task<(IEnumerable<HousingRequest> Items, int TotalCount)> GetAllWithFiltersAsync(int? housingCycleId, int? governorateId, HousingRequestStatus? status, AdmissionDecisionStatus? admissionStatus, PaginationParams pagination);
 }
 
 public interface IHousingRequestDocumentRepository : IRepository<HousingRequestDocument>
@@ -67,7 +68,7 @@ public interface IHousingGroupRepository : IRepository<HousingGroup>
     Task<IEnumerable<HousingGroup>> GetGroupsWithMembersAsync();
     Task<HousingGroup?> GetByCodeAsync(string code);
     Task<HousingGroup?> GetByIdWithDetailsAsync(int id);
-    Task<IEnumerable<HousingGroup>> GetAllWithDetailsAsync(int? housingCycleId);
+    Task<(IEnumerable<HousingGroup> Items, int TotalCount)> GetAllWithDetailsAsync(int? housingCycleId, PaginationParams pagination);
     Task<HousingGroup?> GetByIdWithMembersAndDecisionsAsync(int id);
 }
 
@@ -94,6 +95,6 @@ public interface IAllocationRepository : IRepository<Allocation>
     Task<Allocation?> GetByGroupIdAsync(int groupId);
     Task<IEnumerable<Allocation>> GetByRoomIdAsync(int roomId);
     Task<Allocation?> GetByIdWithDetailsAsync(int id);
-    Task<IEnumerable<Allocation>> GetAllWithDetailsAsync(int? buildingId, int? roomId);
+    Task<(IEnumerable<Allocation> Items, int TotalCount)> GetAllWithDetailsAsync(int? buildingId, int? roomId, PaginationParams pagination);
     Task<IEnumerable<Allocation>> GetActiveByBuildingIdAsync(int buildingId);
 }

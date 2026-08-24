@@ -9,6 +9,7 @@ All requests should go through the Gateway (`http://localhost:5067` locally), us
 | `feedback-service.openapi.json` | FeedbackService | `/api/feedbacks`, `/api/feedbackimages` |
 | `advertising-service.openapi.json` | AdvertisingService | `/api/ads`, `/api/ad-types`, `/api/target-genders` |
 | `notification-service.openapi.json` | NotificationService | `/api/notifications` |
+| `housing-service.openapi.json` | HousingService | `/api/buildings`, `/api/housing-cycles`, `/api/governorates`, `/api/housing-requests`, `/api/housing-groups`, `/api/allocations` |
 | *(external, no local snapshot)* | AuthService (Node.js) | `/api/auth`, `/api/admin` |
 
 ### AuthService is routed through the Gateway too
@@ -25,20 +26,23 @@ Rows created before this migration may still hold old local-style paths; those w
 
 ### Pagination
 
-`GET /api/feedbacks` is paginated via query string, not a request body (GET requests with bodies aren't reliably supported by HTTP tooling/clients):
+Paginated endpoints take `pageNumber`/`pageSize` via query string, not a request body (GET requests with bodies aren't reliably supported by HTTP tooling/clients):
 
 ```
 GET /api/feedbacks?pageNumber=1&pageSize=10
+GET /api/housing-requests?pageNumber=1&pageSize=10
+GET /api/housing-groups?pageNumber=1&pageSize=10
+GET /api/allocations?pageNumber=1&pageSize=10
 ```
 
 - `pageNumber` — default `1`, clamped to a minimum of `1`.
 - `pageSize` — default `10`, clamped between `1` and `50`.
 
-Response shape:
+Response shape (identical across every service — `FeedbackService`, `NotificationService`, and `HousingService` all define the same `PagedResult<T>`/`PaginationParams` pair independently, so client codegen sees the same envelope regardless of which service the endpoint belongs to):
 
 ```json
 {
-  "items": [ /* FeedbackReadDto[] */ ],
+  "items": [ /* T[] */ ],
   "pageNumber": 1,
   "pageSize": 10,
   "totalCount": 2,
@@ -46,7 +50,7 @@ Response shape:
 }
 ```
 
-HousingService is not included yet — it doesn't currently build (missing enum types), so it has no controllers/routes wired up.
+In HousingService this applies to `GET /api/housing-requests`, `GET /api/housing-groups`, and `GET /api/allocations` — the admin-facing list endpoints whose result sets grow over time. The smaller reference/lookup endpoints (`/api/governorates`, `/api/housing-cycles`, `/api/buildings/lookup`, `/api/allocations/candidate-rooms`) return a plain array, same as equivalent lookup endpoints in other services (e.g. `/api/ad-types`, `/api/target-genders`).
 
 ### Authentication (FeedbackService)
 
@@ -131,6 +135,9 @@ curl -s http://localhost:5000/swagger/v1/swagger.json -o contracts/advertising-s
 
 dotnet run --project NotificationService/NotificationService.csproj --urls http://localhost:5081 &
 curl -s http://localhost:5081/swagger/v1/swagger.json -o contracts/notification-service.openapi.json
+
+dotnet run --project HousingService/HousingService/HousingService.csproj --urls http://localhost:5054 &
+curl -s http://localhost:5054/swagger/v1/swagger.json -o contracts/housing-service.openapi.json
 ```
 
 Or, for always-live docs during active development, point client teams straight at the Gateway's aggregated Swagger UI (`http://localhost:5067/swagger/index.html`) instead of a static file.

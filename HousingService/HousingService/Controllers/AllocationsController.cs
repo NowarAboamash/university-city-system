@@ -68,9 +68,9 @@ public class AllocationsController : ControllerBase
 
     [Authorize(Roles = AdminRoles)]
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<AllocationDto>>> GetAll([FromQuery] int? buildingId, [FromQuery] int? roomId)
+    public async Task<ActionResult<PagedResult<AllocationDto>>> GetAll([FromQuery] int? buildingId, [FromQuery] int? roomId, [FromQuery] PaginationParams parameters)
     {
-        var allocations = await _allocationService.GetAllAsync(buildingId, roomId);
+        var allocations = await _allocationService.GetAllAsync(buildingId, roomId, parameters);
         return Ok(allocations);
     }
 

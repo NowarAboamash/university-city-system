@@ -109,9 +109,9 @@ public class HousingGroupsController : ControllerBase
 
     [Authorize(Roles = AdminRoles)]
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<HousingGroupDto>>> GetAll([FromQuery] int? housingCycleId)
+    public async Task<ActionResult<PagedResult<HousingGroupDto>>> GetAll([FromQuery] int? housingCycleId, [FromQuery] PaginationParams parameters)
     {
-        var groups = await _groupService.GetAllAsync(housingCycleId);
+        var groups = await _groupService.GetAllAsync(housingCycleId, parameters);
         return Ok(groups);
     }
 

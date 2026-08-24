@@ -103,16 +103,23 @@ public class HousingGroupService : IHousingGroupService
         return group is null ? null : await MapToDtoAsync(group, includeInvitations: true);
     }
 
-    public async Task<IReadOnlyList<HousingGroupDto>> GetAllAsync(int? housingCycleId)
+    public async Task<PagedResult<HousingGroupDto>> GetAllAsync(int? housingCycleId, PaginationParams pagination)
     {
-        var groups = (await _groupRepository.GetAllWithDetailsAsync(housingCycleId)).ToList();
-        var result = new List<HousingGroupDto>(groups.Count);
-        foreach (var group in groups)
+        var (groups, totalCount) = await _groupRepository.GetAllWithDetailsAsync(housingCycleId, pagination);
+        var groupList = groups.ToList();
+        var items = new List<HousingGroupDto>(groupList.Count);
+        foreach (var group in groupList)
         {
-            result.Add(await MapToDtoAsync(group, includeInvitations: true));
+            items.Add(await MapToDtoAsync(group, includeInvitations: true));
         }
 
-        return result;
+        return new PagedResult<HousingGroupDto>
+        {
+            Items = items,
+            PageNumber = pagination.PageNumber,
+            PageSize = pagination.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<GroupInvitationDto?> JoinByCodeAsync(string studentId, JoinHousingGroupDto dto)

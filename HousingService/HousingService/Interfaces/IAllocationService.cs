@@ -10,7 +10,7 @@ public interface IAllocationService
 
     Task<AllocationDto?> GetByIdAsync(int id);
 
-    Task<IReadOnlyList<AllocationDto>> GetAllAsync(int? buildingId, int? roomId);
+    Task<PagedResult<AllocationDto>> GetAllAsync(int? buildingId, int? roomId, PaginationParams pagination);
 
     Task<AllocationDto?> GetMineAsync(string studentId);
 }

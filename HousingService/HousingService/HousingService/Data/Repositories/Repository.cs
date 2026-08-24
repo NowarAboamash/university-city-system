@@ -1,5 +1,6 @@
 using HousingService.Domain.Entities;
 using HousingService.Domain.Enums;
+using HousingService.DTOs;
 using Microsoft.EntityFrameworkCore;
 
 namespace HousingService.Data.Repositories;
@@ -186,7 +187,7 @@ public class HousingRequestRepository : Repository<HousingRequest>, IHousingRequ
             .FirstOrDefaultAsync(h => h.Id == id);
     }
 
-    public async Task<IEnumerable<HousingRequest>> GetAllWithFiltersAsync(int? housingCycleId, int? governorateId, HousingRequestStatus? status, AdmissionDecisionStatus? admissionStatus)
+    public async Task<(IEnumerable<HousingRequest> Items, int TotalCount)> GetAllWithFiltersAsync(int? housingCycleId, int? governorateId, HousingRequestStatus? status, AdmissionDecisionStatus? admissionStatus, PaginationParams pagination)
     {
         var query = _dbSet.Include(h => h.Documents).Include(h => h.AdmissionDecision).AsQueryable();
 
@@ -210,7 +211,15 @@ public class HousingRequestRepository : Repository<HousingRequest>, IHousingRequ
             query = query.Where(h => h.AdmissionDecision != null && h.AdmissionDecision.Status == admissionStatus.Value);
         }
 
-        return await query.OrderByDescending(h => h.SubmittedAt).ToListAsync();
+        query = query.OrderByDescending(h => h.SubmittedAt);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
+            .ToListAsync();
+
+        return (items, totalCount);
     }
 }
 
@@ -301,7 +310,7 @@ public class HousingGroupRepository : Repository<HousingGroup>, IHousingGroupRep
             .FirstOrDefaultAsync(g => g.Id == id);
     }
 
-    public async Task<IEnumerable<HousingGroup>> GetAllWithDetailsAsync(int? housingCycleId)
+    public async Task<(IEnumerable<HousingGroup> Items, int TotalCount)> GetAllWithDetailsAsync(int? housingCycleId, PaginationParams pagination)
     {
         var query = _dbSet.Include(g => g.Members).Include(g => g.Invitations).AsQueryable();
 
@@ -310,7 +319,15 @@ public class HousingGroupRepository : Repository<HousingGroup>, IHousingGroupRep
             query = query.Where(g => g.HousingCycleId == housingCycleId.Value);
         }
 
-        return await query.OrderByDescending(g => g.CreatedAt).ToListAsync();
+        query = query.OrderByDescending(g => g.CreatedAt);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
+            .ToListAsync();
+
+        return (items, totalCount);
     }
 
     public async Task<HousingGroup?> GetByIdWithMembersAndDecisionsAsync(int id)
@@ -422,7 +439,7 @@ public class AllocationRepository : Repository<Allocation>, IAllocationRepositor
             .FirstOrDefaultAsync(a => a.Id == id);
     }
 
-    public async Task<IEnumerable<Allocation>> GetAllWithDetailsAsync(int? buildingId, int? roomId)
+    public async Task<(IEnumerable<Allocation> Items, int TotalCount)> GetAllWithDetailsAsync(int? buildingId, int? roomId, PaginationParams pagination)
     {
         var query = _dbSet
             .Include(a => a.Room).ThenInclude(r => r.Building)
@@ -440,7 +457,15 @@ public class AllocationRepository : Repository<Allocation>, IAllocationRepositor
             query = query.Where(a => a.RoomId == roomId.Value);
         }
 
-        return await query.OrderByDescending(a => a.AllocatedAt).ToListAsync();
+        query = query.OrderByDescending(a => a.AllocatedAt);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
+            .ToListAsync();
+
+        return (items, totalCount);
     }
 
     public async Task<IEnumerable<Allocation>> GetActiveByBuildingIdAsync(int buildingId)

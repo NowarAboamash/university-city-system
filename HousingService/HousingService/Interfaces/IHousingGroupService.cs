@@ -10,7 +10,7 @@ public interface IHousingGroupService
 
     Task<HousingGroupDto?> GetByIdAsync(int id);
 
-    Task<IReadOnlyList<HousingGroupDto>> GetAllAsync(int? housingCycleId);
+    Task<PagedResult<HousingGroupDto>> GetAllAsync(int? housingCycleId, PaginationParams pagination);
 
     /// <returns>null if the code doesn't exist, otherwise the created invitation id wrapped in a result DTO.</returns>
     Task<GroupInvitationDto?> JoinByCodeAsync(string studentId, JoinHousingGroupDto dto);

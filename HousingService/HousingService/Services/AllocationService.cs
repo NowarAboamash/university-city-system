@@ -133,10 +133,16 @@ public class AllocationService : IAllocationService
         return allocation is null ? null : MapToDto(allocation, allocation.Room, GetOccupantIds(allocation));
     }
 
-    public async Task<IReadOnlyList<AllocationDto>> GetAllAsync(int? buildingId, int? roomId)
+    public async Task<PagedResult<AllocationDto>> GetAllAsync(int? buildingId, int? roomId, PaginationParams pagination)
     {
-        var allocations = await _allocationRepository.GetAllWithDetailsAsync(buildingId, roomId);
-        return allocations.Select(a => MapToDto(a, a.Room, GetOccupantIds(a))).ToList();
+        var (allocations, totalCount) = await _allocationRepository.GetAllWithDetailsAsync(buildingId, roomId, pagination);
+        return new PagedResult<AllocationDto>
+        {
+            Items = allocations.Select(a => MapToDto(a, a.Room, GetOccupantIds(a))).ToList(),
+            PageNumber = pagination.PageNumber,
+            PageSize = pagination.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<AllocationDto?> GetMineAsync(string studentId)

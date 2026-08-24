@@ -146,10 +146,16 @@ public class HousingRequestService : IHousingRequestService
         return MapToDto(request);
     }
 
-    public async Task<IReadOnlyList<HousingRequestDto>> GetAllAsync(int? housingCycleId, int? governorateId, HousingRequestStatus? status, AdmissionDecisionStatus? admissionStatus)
+    public async Task<PagedResult<HousingRequestDto>> GetAllAsync(int? housingCycleId, int? governorateId, HousingRequestStatus? status, AdmissionDecisionStatus? admissionStatus, PaginationParams pagination)
     {
-        var requests = await _requestRepository.GetAllWithFiltersAsync(housingCycleId, governorateId, status, admissionStatus);
-        return requests.Select(MapToDto).ToList();
+        var (requests, totalCount) = await _requestRepository.GetAllWithFiltersAsync(housingCycleId, governorateId, status, admissionStatus, pagination);
+        return new PagedResult<HousingRequestDto>
+        {
+            Items = requests.Select(MapToDto).ToList(),
+            PageNumber = pagination.PageNumber,
+            PageSize = pagination.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<HousingRequestDto?> GetByIdAsync(int id)

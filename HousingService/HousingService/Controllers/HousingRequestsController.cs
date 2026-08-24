@@ -97,13 +97,14 @@ public class HousingRequestsController : ControllerBase
 
     [Authorize(Roles = AdminRoles)]
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<HousingRequestDto>>> GetAll(
+    public async Task<ActionResult<PagedResult<HousingRequestDto>>> GetAll(
         [FromQuery] int? housingCycleId,
         [FromQuery] int? governorateId,
         [FromQuery] HousingRequestStatus? status,
-        [FromQuery] AdmissionDecisionStatus? admissionStatus)
+        [FromQuery] AdmissionDecisionStatus? admissionStatus,
+        [FromQuery] PaginationParams parameters)
     {
-        var requests = await _requestService.GetAllAsync(housingCycleId, governorateId, status, admissionStatus);
+        var requests = await _requestService.GetAllAsync(housingCycleId, governorateId, status, admissionStatus, parameters);
         return Ok(requests);
     }
 
