@@ -111,4 +111,21 @@ public class AllocationsController : ControllerBase
             return BadRequest(ex.Message);
         }
     }
+
+    // Removes one specific member from a shared group allocation, keeping the rest of the group
+    // housed in that room — unlike /vacate, which ends the whole allocation.
+    [Authorize(Roles = AdminRoles)]
+    [HttpPost("{id:int}/members/{studentId}/remove")]
+    public async Task<ActionResult<AllocationDto>> RemoveGroupMember(int id, string studentId)
+    {
+        try
+        {
+            var result = await _allocationService.RemoveGroupMemberAsync(id, studentId);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
 }

@@ -13,6 +13,7 @@ public class AllocationService : IAllocationService
     private readonly IRoomRepository _roomRepository;
     private readonly IHousingRequestRepository _requestRepository;
     private readonly IHousingGroupRepository _groupRepository;
+    private readonly IHousingGroupService _groupService;
     private readonly IHousingCycleRepository _cycleRepository;
     private readonly INotificationPublisher _notificationPublisher;
     private readonly TimeProvider _timeProvider;
@@ -22,6 +23,7 @@ public class AllocationService : IAllocationService
         IRoomRepository roomRepository,
         IHousingRequestRepository requestRepository,
         IHousingGroupRepository groupRepository,
+        IHousingGroupService groupService,
         IHousingCycleRepository cycleRepository,
         INotificationPublisher notificationPublisher,
         TimeProvider timeProvider)
@@ -30,6 +32,7 @@ public class AllocationService : IAllocationService
         _roomRepository = roomRepository;
         _requestRepository = requestRepository;
         _groupRepository = groupRepository;
+        _groupService = groupService;
         _cycleRepository = cycleRepository;
         _notificationPublisher = notificationPublisher;
         _timeProvider = timeProvider;
@@ -287,6 +290,74 @@ public class AllocationService : IAllocationService
         }
 
         return MapToDto(allocation, room, occupantStudentIds);
+    }
+
+    public async Task<AllocationDto?> RemoveGroupMemberAsync(int allocationId, string studentId)
+    {
+        var allocation = await _allocationRepository.GetByIdWithDetailsAsync(allocationId);
+        if (allocation is null)
+        {
+            return null;
+        }
+
+        if (allocation.VacatedAt is not null)
+        {
+            throw new ArgumentException("This allocation has already been vacated.");
+        }
+
+        if (allocation.HousingGroup is null)
+        {
+            throw new ArgumentException("This allocation is for an individual student, not a group. Use the vacate endpoint to remove them instead.");
+        }
+
+        var group = allocation.HousingGroup;
+        if (!group.Members.Any(m => m.StudentId == studentId))
+        {
+            throw new ArgumentException("This student is not a member of the allocated group.");
+        }
+
+        var room = await _roomRepository.GetByIdWithOccupantsAsync(allocation.RoomId);
+        if (room is null)
+        {
+            throw new InvalidOperationException("The allocated room could not be found.");
+        }
+
+        // If this is the group's last member, removing them ends this allocation's residency
+        // entirely (the group itself gets deleted below) — stamp VacatedAt too, otherwise the
+        // allocation would sit forever as "active" with no occupants and no group to reference.
+        var isLastMember = group.Members.Count == 1;
+        var remainingOccupancy = GetCurrentOccupancy(room) - 1;
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+
+        if (isLastMember)
+        {
+            allocation.VacatedAt = now;
+            allocation.UpdatedAt = now;
+            _allocationRepository.Update(allocation);
+        }
+
+        room.Status = remainingOccupancy switch
+        {
+            <= 0 => RoomStatus.Available,
+            _ when remainingOccupancy >= room.Building.StandardRoomCapacity => RoomStatus.Full,
+            _ => RoomStatus.Occupied
+        };
+        room.UpdatedAt = now;
+        _roomRepository.Update(room);
+
+        await _roomRepository.SaveChangesAsync();
+
+        // Reuses the existing leave/remove routine: transfers leadership (or deletes the group if
+        // this was the last member) and notifies the remaining members that this student left.
+        await _groupService.RemoveMemberAsync(group.Id, studentId);
+
+        await _notificationPublisher.NotifyUserAsync(
+            studentId,
+            "تم إخراجك من الغرفة",
+            $"تم إخراجك من غرفة {room.RoomNumber} في مبنى {room.Building.Name}.");
+
+        var refreshed = await _allocationRepository.GetByIdWithDetailsAsync(allocationId);
+        return refreshed is null ? null : MapToDto(refreshed, room, GetOccupantIds(refreshed));
     }
 
     public async Task<AllocationDto?> GetByIdAsync(int id)
