@@ -14,6 +14,8 @@ public class HousingGroupService : IHousingGroupService
     private readonly IGroupInvitationRepository _invitationRepository;
     private readonly IHousingRequestRepository _requestRepository;
     private readonly IHousingCycleRepository _cycleRepository;
+    private readonly IAllocationRepository _allocationRepository;
+    private readonly IRoomRepository _roomRepository;
     private readonly IUserLookupService _userLookupService;
     private readonly INotificationPublisher _notificationPublisher;
     private readonly TimeProvider _timeProvider;
@@ -23,6 +25,8 @@ public class HousingGroupService : IHousingGroupService
         IGroupInvitationRepository invitationRepository,
         IHousingRequestRepository requestRepository,
         IHousingCycleRepository cycleRepository,
+        IAllocationRepository allocationRepository,
+        IRoomRepository roomRepository,
         IUserLookupService userLookupService,
         INotificationPublisher notificationPublisher,
         TimeProvider timeProvider)
@@ -31,6 +35,8 @@ public class HousingGroupService : IHousingGroupService
         _invitationRepository = invitationRepository;
         _requestRepository = requestRepository;
         _cycleRepository = cycleRepository;
+        _allocationRepository = allocationRepository;
+        _roomRepository = roomRepository;
         _userLookupService = userLookupService;
         _notificationPublisher = notificationPublisher;
         _timeProvider = timeProvider;
@@ -339,6 +345,11 @@ public class HousingGroupService : IHousingGroupService
         leaverNames.TryGetValue(memberRequest.StudentId, out var leaverInfo);
         var leaverName = leaverInfo?.FullName ?? "أحد الأعضاء";
 
+        // If this group currently occupies a room, a departing member has to be reflected there
+        // too — otherwise the room's Status silently goes stale (e.g. stays Full after someone
+        // left) since nothing else in the leave/remove path ever touches Allocation/Room.
+        await SyncRoomOnMemberDepartureAsync(group, remainingMembers.Count, now);
+
         memberRequest.HousingGroupId = null;
         memberRequest.UpdatedAt = now;
         _requestRepository.Update(memberRequest);
@@ -397,6 +408,62 @@ public class HousingGroupService : IHousingGroupService
                 $"غادر قائد الغروب {group.Code} السابق، وقد أصبحت أنت القائد الجديد.",
                 leadershipData);
         }
+    }
+
+    private async Task SyncRoomOnMemberDepartureAsync(HousingGroup group, int remainingMemberCount, DateTime now)
+    {
+        var allocation = await _allocationRepository.GetByGroupIdAsync(group.Id);
+        if (allocation is null)
+        {
+            // Group isn't currently housed anywhere — nothing to keep in sync.
+            return;
+        }
+
+        var room = await _roomRepository.GetByIdWithOccupantsAsync(allocation.RoomId);
+        if (room is null)
+        {
+            return;
+        }
+
+        var remainingOccupancy = GetCurrentOccupancy(room) - 1;
+
+        if (remainingMemberCount == 0)
+        {
+            // No one is left in this room for this allocation — same end state as a full vacate
+            // (the group itself is deleted right after this call returns).
+            allocation.VacatedAt = now;
+            allocation.UpdatedAt = now;
+            _allocationRepository.Update(allocation);
+        }
+
+        room.Status = remainingOccupancy switch
+        {
+            <= 0 => RoomStatus.Available,
+            _ when remainingOccupancy >= room.Building.StandardRoomCapacity => RoomStatus.Full,
+            _ => RoomStatus.Occupied
+        };
+        room.UpdatedAt = now;
+        _roomRepository.Update(room);
+
+        await _roomRepository.SaveChangesAsync();
+    }
+
+    private static int GetCurrentOccupancy(Room room)
+    {
+        var count = 0;
+        foreach (var allocation in room.Allocations.Where(a => a.VacatedAt is null))
+        {
+            if (allocation.HousingRequestId is not null)
+            {
+                count += 1;
+            }
+            else if (allocation.HousingGroup is not null)
+            {
+                count += allocation.HousingGroup.Members.Count;
+            }
+        }
+
+        return count;
     }
 
     private async Task<string> GenerateUniqueCodeAsync(int year)

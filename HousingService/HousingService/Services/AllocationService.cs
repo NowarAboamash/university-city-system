@@ -322,42 +322,22 @@ public class AllocationService : IAllocationService
             throw new InvalidOperationException("The allocated room could not be found.");
         }
 
-        // If this is the group's last member, removing them ends this allocation's residency
-        // entirely (the group itself gets deleted below) — stamp VacatedAt too, otherwise the
-        // allocation would sit forever as "active" with no occupants and no group to reference.
-        var isLastMember = group.Members.Count == 1;
-        var remainingOccupancy = GetCurrentOccupancy(room) - 1;
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var roomNumber = room.RoomNumber;
+        var buildingName = room.Building.Name;
 
-        if (isLastMember)
-        {
-            allocation.VacatedAt = now;
-            allocation.UpdatedAt = now;
-            _allocationRepository.Update(allocation);
-        }
-
-        room.Status = remainingOccupancy switch
-        {
-            <= 0 => RoomStatus.Available,
-            _ when remainingOccupancy >= room.Building.StandardRoomCapacity => RoomStatus.Full,
-            _ => RoomStatus.Occupied
-        };
-        room.UpdatedAt = now;
-        _roomRepository.Update(room);
-
-        await _roomRepository.SaveChangesAsync();
-
-        // Reuses the existing leave/remove routine: transfers leadership (or deletes the group if
-        // this was the last member) and notifies the remaining members that this student left.
+        // Reuses the existing leave/remove routine: it now keeps the room/allocation state in
+        // sync itself (recomputes Room.Status, and vacates the allocation if this was the last
+        // member), transfers leadership if needed, and notifies the remaining members.
         await _groupService.RemoveMemberAsync(group.Id, studentId);
 
         await _notificationPublisher.NotifyUserAsync(
             studentId,
             "تم إخراجك من الغرفة",
-            $"تم إخراجك من غرفة {room.RoomNumber} في مبنى {room.Building.Name}.");
+            $"تم إخراجك من غرفة {roomNumber} في مبنى {buildingName}.");
 
         var refreshed = await _allocationRepository.GetByIdWithDetailsAsync(allocationId);
-        return refreshed is null ? null : MapToDto(refreshed, room, GetOccupantIds(refreshed));
+        var refreshedRoom = refreshed is null ? null : await _roomRepository.GetByIdWithOccupantsAsync(refreshed.RoomId);
+        return refreshed is null || refreshedRoom is null ? null : MapToDto(refreshed, refreshedRoom, GetOccupantIds(refreshed));
     }
 
     public async Task<IReadOnlyList<AllocationDto>> GetHistoryForStudentAsync(string studentId)
