@@ -153,4 +153,36 @@ public class HousingRequestsController : ControllerBase
             return BadRequest(ex.Message);
         }
     }
+
+    // Available to every role: a student may delete their own request, an admin may delete any.
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Unauthorized("Access token does not contain a valid user id.");
+        }
+
+        var isAdmin = IsAdmin();
+        if (!isAdmin)
+        {
+            var existing = await _requestService.GetMineByIdAsync(userId, id);
+            if (existing is null)
+            {
+                return NotFound();
+            }
+        }
+
+        try
+        {
+            var result = await _requestService.DeleteAsync(id, userId, isAdmin);
+            return result is null ? NotFound() : NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    private bool IsAdmin() => User.IsInRole("admin") || User.IsInRole("super_admin");
 }

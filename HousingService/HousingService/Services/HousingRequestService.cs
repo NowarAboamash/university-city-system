@@ -16,6 +16,8 @@ public class HousingRequestService : IHousingRequestService
     private readonly IGovernorateRepository _governorateRepository;
     private readonly IHousingCycleRepository _cycleRepository;
     private readonly IBuildingRepository _buildingRepository;
+    private readonly IAllocationRepository _allocationRepository;
+    private readonly IGroupInvitationRepository _invitationRepository;
     private readonly IImageUploader _imageUploader;
     private readonly INotificationPublisher _notificationPublisher;
     private readonly IHousingGroupService _groupService;
@@ -26,6 +28,8 @@ public class HousingRequestService : IHousingRequestService
         IGovernorateRepository governorateRepository,
         IHousingCycleRepository cycleRepository,
         IBuildingRepository buildingRepository,
+        IAllocationRepository allocationRepository,
+        IGroupInvitationRepository invitationRepository,
         IImageUploader imageUploader,
         INotificationPublisher notificationPublisher,
         IHousingGroupService groupService,
@@ -35,6 +39,8 @@ public class HousingRequestService : IHousingRequestService
         _governorateRepository = governorateRepository;
         _cycleRepository = cycleRepository;
         _buildingRepository = buildingRepository;
+        _allocationRepository = allocationRepository;
+        _invitationRepository = invitationRepository;
         _imageUploader = imageUploader;
         _notificationPublisher = notificationPublisher;
         _groupService = groupService;
@@ -369,6 +375,71 @@ public class HousingRequestService : IHousingRequestService
         await _notificationPublisher.NotifyUserAsync(request.StudentId, title, body);
 
         return MapToDto(request);
+    }
+
+    public async Task<bool?> DeleteAsync(int id, string performedBy, bool performedByAdmin)
+    {
+        var request = await _requestRepository.GetByIdWithDocumentsAsync(id);
+        if (request is null)
+        {
+            return null;
+        }
+
+        // A student who is still actively housed (individually or via their group) can't just
+        // delete their application out from under a real, physically occupied room — the
+        // building must be evacuated (or the allocation otherwise cleared) first.
+        var activeAllocation = await _allocationRepository.GetByHousingRequestIdAsync(id);
+        if (activeAllocation is null && request.HousingGroupId is not null)
+        {
+            activeAllocation = await _allocationRepository.GetByGroupIdAsync(request.HousingGroupId.Value);
+        }
+
+        if (activeAllocation is not null)
+        {
+            throw new ArgumentException("Cannot delete a housing request with an active room allocation. The student must be evacuated first.");
+        }
+
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+
+        // Leaving the group first reuses the existing leave/remove flow: leadership transfer
+        // (or group deletion if this was the last member) and notifying the remaining members.
+        if (request.HousingGroupId is not null)
+        {
+            await _groupService.RemoveMemberAsync(request.HousingGroupId.Value, request.StudentId);
+        }
+
+        // Any join requests this student has pending against OTHER groups no longer make sense
+        // once their own housing request is gone — cancel them so leaders aren't left reviewing stale ones.
+        var pendingInvitations = (await _invitationRepository.GetPendingInvitationsAsync(request.StudentId)).ToList();
+        foreach (var invitation in pendingInvitations)
+        {
+            invitation.Status = InvitationStatus.Cancelled;
+            invitation.RespondedAt = now;
+            _invitationRepository.Update(invitation);
+        }
+
+        if (pendingInvitations.Count > 0)
+        {
+            await _invitationRepository.SaveChangesAsync();
+        }
+
+        foreach (var document in request.Documents)
+        {
+            await _imageUploader.DeleteAsync(document.DocumentPath);
+        }
+
+        _requestRepository.Remove(request);
+        await _requestRepository.SaveChangesAsync();
+
+        if (performedByAdmin && performedBy != request.StudentId)
+        {
+            await _notificationPublisher.NotifyUserAsync(
+                request.StudentId,
+                "تم حذف طلب التسكين",
+                "قام أحد الإداريين بحذف طلب التسكين الخاص بك.");
+        }
+
+        return true;
     }
 
     private static void ValidateRequiredFile(IFormFile? file, string fieldName)

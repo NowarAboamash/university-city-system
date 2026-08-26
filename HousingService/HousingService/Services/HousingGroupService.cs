@@ -335,6 +335,10 @@ public class HousingGroupService : IHousingGroupService
         var wasLeader = memberRequest.StudentId == group.LeaderId;
         var remainingMembers = group.Members.Where(m => m.Id != memberRequest.Id).ToList();
 
+        var leaverNames = await _userLookupService.LookupUsersAsync([memberRequest.StudentId]);
+        leaverNames.TryGetValue(memberRequest.StudentId, out var leaverInfo);
+        var leaverName = leaverInfo?.FullName ?? "أحد الأعضاء";
+
         memberRequest.HousingGroupId = null;
         memberRequest.UpdatedAt = now;
         _requestRepository.Update(memberRequest);
@@ -371,6 +375,28 @@ public class HousingGroupService : IHousingGroupService
         group.UpdatedAt = now;
         _groupRepository.Update(group);
         await _groupRepository.SaveChangesAsync();
+
+        // Let the remaining members know a teammate is gone, and separately tell the
+        // new leader (if leadership changed) so they know they're now responsible for the group.
+        var leaveData = System.Text.Json.JsonSerializer.Serialize(new { type = "group_member_left", relatedId = group.Id });
+        foreach (var remaining in remainingMembers)
+        {
+            await _notificationPublisher.NotifyUserAsync(
+                remaining.StudentId,
+                "مغادرة عضو من الغروب",
+                $"غادر {leaverName} الغروب {group.Code}.",
+                leaveData);
+        }
+
+        if (wasLeader)
+        {
+            var leadershipData = System.Text.Json.JsonSerializer.Serialize(new { type = "group_leadership_transferred", relatedId = group.Id });
+            await _notificationPublisher.NotifyUserAsync(
+                group.LeaderId,
+                "أصبحت قائد الغروب",
+                $"غادر قائد الغروب {group.Code} السابق، وقد أصبحت أنت القائد الجديد.",
+                leadershipData);
+        }
     }
 
     private async Task<string> GenerateUniqueCodeAsync(int year)

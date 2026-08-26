@@ -20,4 +20,7 @@ public interface IHousingRequestService
     Task<bool?> ReviewDocumentAsync(int requestId, int documentId, ReviewDocumentDto dto, string reviewedBy);
 
     Task<HousingRequestDto?> MakeDecisionAsync(int requestId, MakeAdmissionDecisionDto dto, string reviewedBy);
+
+    /// <returns>null if not found, true once deleted. Throws ArgumentException if the request (or its group) has an active room allocation.</returns>
+    Task<bool?> DeleteAsync(int id, string performedBy, bool performedByAdmin);
 }
