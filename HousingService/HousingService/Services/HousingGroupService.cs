@@ -248,6 +248,13 @@ public class HousingGroupService : IHousingGroupService
         _invitationRepository.Update(invitation);
         await _invitationRepository.SaveChangesAsync();
 
+        var acceptedData = System.Text.Json.JsonSerializer.Serialize(new { type = "group_join_accepted", relatedId = group.Id });
+        await _notificationPublisher.NotifyUserAsync(
+            invitation.InvitedStudentId,
+            "تم قبولك في الغروب",
+            $"تمت الموافقة على طلب انضمامك إلى الغروب {group.Code}.",
+            acceptedData);
+
         // Reload the member count post-save to decide whether the group is now full.
         var refreshedGroup = await _groupRepository.GetByIdWithDetailsAsync(group.Id);
         if (refreshedGroup is not null && refreshedGroup.Members.Count >= refreshedGroup.MaxMembers)
