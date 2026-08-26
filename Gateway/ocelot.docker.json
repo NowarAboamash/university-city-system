@@ -111,13 +111,43 @@
       "SwaggerKey": "housing"
     },
     {
-      "DownstreamPathTemplate": "/api/buildings/{everything}",
+      "DownstreamPathTemplate": "/api/buildings/lookup",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         { "Host": "housingservice", "Port": 8080 }
       ],
-      "UpstreamPathTemplate": "/api/buildings/{everything}",
-      "UpstreamHttpMethod": [ "GET", "PUT", "POST" ],
+      "UpstreamPathTemplate": "/api/buildings/lookup",
+      "UpstreamHttpMethod": [ "GET" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/buildings/{id}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "housingservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/api/buildings/{id}",
+      "UpstreamHttpMethod": [ "GET", "PUT" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/buildings/{id}/evacuation/announce",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "housingservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/api/buildings/{id}/evacuation/announce",
+      "UpstreamHttpMethod": [ "POST" ],
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/buildings/{id}/evacuation/execute",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "housingservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/api/buildings/{id}/evacuation/execute",
+      "UpstreamHttpMethod": [ "POST" ],
       "SwaggerKey": "housing"
     },
     {
