@@ -3,6 +3,7 @@ using FeedbackService.DTOs;
 using FeedbackService.Interfaces;
 using FeedbackService.Models;
 using Microsoft.EntityFrameworkCore;
+using SharedKernel.Notifications;
 using SharedKernel.Users;
 
 namespace FeedbackService.Services
@@ -12,12 +13,18 @@ namespace FeedbackService.Services
         private readonly FeedbackDbContext _context;
         private readonly IFileHandler _fileHandler;
         private readonly IUserLookupService _userLookupService;
+        private readonly INotificationPublisher _notificationPublisher;
 
-        public FeedbackService(FeedbackDbContext context, IFileHandler fileHandler, IUserLookupService userLookupService)
+        public FeedbackService(
+            FeedbackDbContext context,
+            IFileHandler fileHandler,
+            IUserLookupService userLookupService,
+            INotificationPublisher notificationPublisher)
         {
             _context = context;
             _fileHandler = fileHandler;
             _userLookupService = userLookupService;
+            _notificationPublisher = notificationPublisher;
         }
 
         public async Task<PagedResult<FeedbackReadDto>> GetAllAsync(PaginationParams parameters, string? studentId)
@@ -280,6 +287,11 @@ namespace FeedbackService.Services
             entity.IsRead = true;
 
             await _context.SaveChangesAsync();
+
+            await _notificationPublisher.NotifyUserAsync(
+                entity.StudentId,
+                "تم الرد على شكواك",
+                "قامت الإدارة بالرد على الشكوى/الملاحظة التي أرسلتها.");
 
             return MapToDto(entity);
         }
