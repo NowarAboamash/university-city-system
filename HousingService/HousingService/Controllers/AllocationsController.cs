@@ -81,4 +81,19 @@ public class AllocationsController : ControllerBase
         var allocation = await _allocationService.GetByIdAsync(id);
         return allocation is null ? NotFound() : Ok(allocation);
     }
+
+    [Authorize(Roles = AdminRoles)]
+    [HttpPost("{id:int}/transfer")]
+    public async Task<ActionResult<AllocationDto>> Transfer(int id, TransferAllocationDto dto)
+    {
+        try
+        {
+            var result = await _allocationService.TransferAsync(id, dto);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
 }

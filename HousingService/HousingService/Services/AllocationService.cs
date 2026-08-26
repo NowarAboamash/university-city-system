@@ -127,6 +127,112 @@ public class AllocationService : IAllocationService
         return MapToDto(allocation, room, occupantStudentIds);
     }
 
+    public async Task<AllocationDto?> TransferAsync(int allocationId, TransferAllocationDto dto)
+    {
+        var allocation = await _allocationRepository.GetByIdWithDetailsAsync(allocationId);
+        if (allocation is null)
+        {
+            return null;
+        }
+
+        if (allocation.VacatedAt is not null)
+        {
+            throw new ArgumentException("This allocation has already been vacated and can no longer be transferred.");
+        }
+
+        if (dto.NewRoomId == allocation.RoomId)
+        {
+            throw new ArgumentException("The student is already assigned to this room.");
+        }
+
+        Gender occupantGender;
+        int neededCapacity;
+        List<string> occupantStudentIds;
+
+        if (allocation.HousingRequest is not null)
+        {
+            occupantGender = allocation.HousingRequest.Gender;
+            neededCapacity = 1;
+            occupantStudentIds = [allocation.HousingRequest.StudentId];
+        }
+        else if (allocation.HousingGroup is not null)
+        {
+            var group = allocation.HousingGroup;
+            occupantGender = group.Members.First(m => m.StudentId == group.LeaderId).Gender;
+            neededCapacity = group.Members.Count;
+            occupantStudentIds = group.Members.Select(m => m.StudentId).ToList();
+        }
+        else
+        {
+            throw new InvalidOperationException("Allocation has neither a housing request nor a group.");
+        }
+
+        var newRoom = await _roomRepository.GetByIdWithOccupantsAsync(dto.NewRoomId);
+        if (newRoom is null)
+        {
+            throw new ArgumentException("Room was not found.");
+        }
+
+        if (!IsGenderMatch(newRoom.Building.Gender, occupantGender))
+        {
+            throw new ArgumentException("This room's building does not match the required gender.");
+        }
+
+        if (newRoom.Status is not (RoomStatus.Available or RoomStatus.Occupied))
+        {
+            throw new ArgumentException("This room is not available for allocation.");
+        }
+
+        var newRoomRemaining = newRoom.Building.StandardRoomCapacity - GetCurrentOccupancy(newRoom);
+        if (newRoomRemaining < neededCapacity)
+        {
+            throw new ArgumentException("This room does not have enough remaining capacity.");
+        }
+
+        var oldRoom = await _roomRepository.GetByIdWithOccupantsAsync(allocation.RoomId);
+        if (oldRoom is null)
+        {
+            throw new InvalidOperationException("The previously allocated room could not be found.");
+        }
+
+        // Occupancy for both rooms is computed here (before RoomId changes) so the arithmetic
+        // below doesn't depend on whether EF's in-memory relationship fixup has run yet.
+        var oldRoomOccupancyAfterMove = GetCurrentOccupancy(oldRoom) - neededCapacity;
+        var newRoomOccupancyAfterMove = GetCurrentOccupancy(newRoom) + neededCapacity;
+
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+
+        // Updated in place (unlike building evacuation, which stamps VacatedAt to preserve
+        // history) — a group's Allocation row is constrained to exactly one per group by a
+        // unique index on HousingGroupId, so vacate-and-recreate isn't an option here; an
+        // admin-corrected room assignment isn't a residency-ending event anyway.
+        allocation.RoomId = dto.NewRoomId;
+        allocation.UpdatedAt = now;
+        _allocationRepository.Update(allocation);
+
+        oldRoom.Status = oldRoomOccupancyAfterMove switch
+        {
+            <= 0 => RoomStatus.Available,
+            _ when oldRoomOccupancyAfterMove >= oldRoom.Building.StandardRoomCapacity => RoomStatus.Full,
+            _ => RoomStatus.Occupied
+        };
+        oldRoom.UpdatedAt = now;
+        _roomRepository.Update(oldRoom);
+
+        newRoom.Status = newRoomOccupancyAfterMove >= newRoom.Building.StandardRoomCapacity ? RoomStatus.Full : RoomStatus.Occupied;
+        newRoom.UpdatedAt = now;
+        _roomRepository.Update(newRoom);
+
+        await _allocationRepository.SaveChangesAsync();
+
+        await _notificationPublisher.NotifyUsersAsync(
+            occupantStudentIds,
+            "تم نقل سكنك",
+            $"تم نقلك إلى غرفة {newRoom.RoomNumber} في مبنى {newRoom.Building.Name}.");
+
+        return MapToDto(allocation, newRoom, occupantStudentIds);
+    }
+
     public async Task<AllocationDto?> GetByIdAsync(int id)
     {
         var allocation = await _allocationRepository.GetByIdWithDetailsAsync(id);
