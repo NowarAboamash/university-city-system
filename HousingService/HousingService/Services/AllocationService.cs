@@ -233,6 +233,62 @@ public class AllocationService : IAllocationService
         return MapToDto(allocation, newRoom, occupantStudentIds);
     }
 
+    public async Task<AllocationDto?> VacateAsync(int allocationId, VacateAllocationDto dto)
+    {
+        var allocation = await _allocationRepository.GetByIdWithDetailsAsync(allocationId);
+        if (allocation is null)
+        {
+            return null;
+        }
+
+        if (allocation.VacatedAt is not null)
+        {
+            throw new ArgumentException("This allocation has already been vacated.");
+        }
+
+        var occupantStudentIds = GetOccupantIds(allocation);
+
+        var room = await _roomRepository.GetByIdWithOccupantsAsync(allocation.RoomId);
+        if (room is null)
+        {
+            throw new InvalidOperationException("The allocated room could not be found.");
+        }
+
+        // Same occupancy-before-mutation approach as TransferAsync: compute what's left once
+        // this allocation's occupant(s) are removed, without depending on EF navigation fixup.
+        var remainingOccupancy = GetCurrentOccupancy(room) - occupantStudentIds.Count;
+
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+
+        allocation.VacatedAt = now;
+        allocation.UpdatedAt = now;
+        _allocationRepository.Update(allocation);
+
+        // Mirrors BuildingEvacuationService: vacating doesn't touch HousingGroup.Status (it stays
+        // Allocated) — there's no "group is done" transition modeled yet, same as whole-building evacuation.
+        room.Status = remainingOccupancy switch
+        {
+            <= 0 => RoomStatus.Available,
+            _ when remainingOccupancy >= room.Building.StandardRoomCapacity => RoomStatus.Full,
+            _ => RoomStatus.Occupied
+        };
+        room.UpdatedAt = now;
+        _roomRepository.Update(room);
+
+        await _allocationRepository.SaveChangesAsync();
+
+        if (occupantStudentIds.Count > 0)
+        {
+            var message = string.IsNullOrWhiteSpace(dto.Message)
+                ? $"تم إخراجك من غرفة {room.RoomNumber} في مبنى {room.Building.Name}."
+                : dto.Message.Trim();
+
+            await _notificationPublisher.NotifyUsersAsync(occupantStudentIds, "تم إلغاء تخصيص سكنك", message);
+        }
+
+        return MapToDto(allocation, room, occupantStudentIds);
+    }
+
     public async Task<AllocationDto?> GetByIdAsync(int id)
     {
         var allocation = await _allocationRepository.GetByIdWithDetailsAsync(id);

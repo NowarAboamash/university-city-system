@@ -96,4 +96,19 @@ public class AllocationsController : ControllerBase
             return BadRequest(ex.Message);
         }
     }
+
+    [Authorize(Roles = AdminRoles)]
+    [HttpPost("{id:int}/vacate")]
+    public async Task<ActionResult<AllocationDto>> Vacate(int id, VacateAllocationDto dto)
+    {
+        try
+        {
+            var result = await _allocationService.VacateAsync(id, dto);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
 }
