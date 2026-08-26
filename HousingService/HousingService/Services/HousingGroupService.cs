@@ -257,12 +257,40 @@ public class HousingGroupService : IHousingGroupService
             throw new ArgumentException("This student's housing request is no longer eligible to join.");
         }
 
+        // If the group is already housed, a new member can't just be added silently — the room
+        // might not have a free seat for them, and its occupancy count needs to grow too.
+        var allocation = await _allocationRepository.GetByGroupIdAsync(group.Id);
+        Room? room = null;
+        if (allocation is not null)
+        {
+            room = await _roomRepository.GetByIdWithOccupantsAsync(allocation.RoomId);
+            if (room is null)
+            {
+                throw new InvalidOperationException("The allocated room could not be found.");
+            }
+
+            var remaining = room.Building.StandardRoomCapacity - GetCurrentOccupancy(room);
+            if (remaining < 1)
+            {
+                throw new ArgumentException("This group's room has no remaining capacity for a new member.");
+            }
+        }
+
         memberRequest.HousingGroupId = group.Id;
         invitation.Status = InvitationStatus.Accepted;
         invitation.RespondedAt = now;
 
         _requestRepository.Update(memberRequest);
         _invitationRepository.Update(invitation);
+
+        if (room is not null)
+        {
+            var newOccupancy = GetCurrentOccupancy(room) + 1;
+            room.Status = newOccupancy >= room.Building.StandardRoomCapacity ? RoomStatus.Full : RoomStatus.Occupied;
+            room.UpdatedAt = now;
+            _roomRepository.Update(room);
+        }
+
         await _invitationRepository.SaveChangesAsync();
 
         var acceptedData = System.Text.Json.JsonSerializer.Serialize(new { type = "group_join_accepted", relatedId = group.Id });
@@ -271,6 +299,14 @@ public class HousingGroupService : IHousingGroupService
             "تم قبولك في الغروب",
             $"تمت الموافقة على طلب انضمامك إلى الغروب {group.Code}.",
             acceptedData);
+
+        if (room is not null)
+        {
+            await _notificationPublisher.NotifyUserAsync(
+                invitation.InvitedStudentId,
+                "تم تخصيص سكنك",
+                $"تم تخصيص غرفة {room.RoomNumber} في مبنى {room.Building.Name} لك ضمن الغروب.");
+        }
 
         // Reload the member count post-save to decide whether the group is now full.
         var refreshedGroup = await _groupRepository.GetByIdWithDetailsAsync(group.Id);

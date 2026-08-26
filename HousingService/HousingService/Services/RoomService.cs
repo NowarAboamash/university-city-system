@@ -85,7 +85,7 @@ public class RoomService : IRoomService
             return null;
         }
 
-        var room = await _roomRepository.GetByIdAsync(id);
+        var room = await _roomRepository.GetByIdWithOccupantsAsync(id);
         if (room is null || room.BuildingId != buildingId)
         {
             return false;
@@ -100,6 +100,23 @@ public class RoomService : IRoomService
         if (existing is not null && existing.Id != id)
         {
             throw new ArgumentException($"Room '{dto.RoomNumber}' already exists in this building.");
+        }
+
+        // A manual status edit can't be allowed to silently contradict who's actually living
+        // there — that would desync this field from the Allocation-derived occupancy everywhere
+        // else in the system reads it from. Occupants must be moved/vacated first (via
+        // allocations/transfer or /vacate), not erased by an admin flipping this dropdown.
+        var currentOccupancy = GetOccupantStudentIds(room).Count;
+        var requestedStatusMeansOccupied = dto.Status is RoomStatus.Occupied or RoomStatus.Full;
+
+        if (currentOccupancy > 0 && !requestedStatusMeansOccupied)
+        {
+            throw new ArgumentException($"This room currently has {currentOccupancy} active occupant(s); it must be vacated or transferred out before its status can be changed to {dto.Status}.");
+        }
+
+        if (currentOccupancy == 0 && requestedStatusMeansOccupied)
+        {
+            throw new ArgumentException("This room has no active occupants; it cannot be marked Occupied or Full.");
         }
 
         room.RoomNumber = dto.RoomNumber.Trim();

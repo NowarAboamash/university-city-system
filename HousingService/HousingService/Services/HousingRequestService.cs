@@ -21,6 +21,7 @@ public class HousingRequestService : IHousingRequestService
     private readonly IImageUploader _imageUploader;
     private readonly INotificationPublisher _notificationPublisher;
     private readonly IHousingGroupService _groupService;
+    private readonly IAllocationService _allocationService;
     private readonly TimeProvider _timeProvider;
 
     public HousingRequestService(
@@ -33,6 +34,7 @@ public class HousingRequestService : IHousingRequestService
         IImageUploader imageUploader,
         INotificationPublisher notificationPublisher,
         IHousingGroupService groupService,
+        IAllocationService allocationService,
         TimeProvider timeProvider)
     {
         _requestRepository = requestRepository;
@@ -44,6 +46,7 @@ public class HousingRequestService : IHousingRequestService
         _imageUploader = imageUploader;
         _notificationPublisher = notificationPublisher;
         _groupService = groupService;
+        _allocationService = allocationService;
         _timeProvider = timeProvider;
     }
 
@@ -357,11 +360,30 @@ public class HousingRequestService : IHousingRequestService
         _requestRepository.Update(request);
         await _requestRepository.SaveChangesAsync();
 
-        // A rejected member is implicitly excluded from any group they were part of —
-        // no grace period needed since rejection is already a final decision.
-        if (dto.Status == AdmissionDecisionStatus.Rejected && request.HousingGroupId is not null)
+        // A member who's no longer Accepted (rejected outright, or bumped back to the waiting
+        // list) is implicitly excluded from any group they were part of — no grace period
+        // needed since this is a deliberate admin decision, not a stuck-pending situation.
+        if (dto.Status is AdmissionDecisionStatus.Rejected or AdmissionDecisionStatus.WaitingList)
         {
-            await _groupService.RemoveMemberAsync(request.HousingGroupId.Value, request.StudentId);
+            if (request.HousingGroupId is not null)
+            {
+                // Reuses the shared removal routine, which also keeps the room in sync
+                // (recomputes occupancy, vacates the allocation if this was the last member).
+                await _groupService.RemoveMemberAsync(request.HousingGroupId.Value, request.StudentId);
+            }
+            else
+            {
+                // An individual student who's no longer Accepted shouldn't keep occupying a
+                // room either — free it up the same way an admin-triggered vacate would.
+                var activeAllocation = await _allocationRepository.GetByHousingRequestIdAsync(request.Id);
+                if (activeAllocation is not null)
+                {
+                    await _allocationService.VacateAsync(activeAllocation.Id, new VacateAllocationDto
+                    {
+                        Message = "تم إلغاء تخصيص سكنك بسبب تغيير حالة طلب التسكين الخاص بك."
+                    });
+                }
+            }
         }
 
         var (title, body) = dto.Status switch

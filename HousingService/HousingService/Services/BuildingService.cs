@@ -9,11 +9,13 @@ namespace HousingService.Services;
 public class BuildingService : IBuildingService
 {
     private readonly IBuildingRepository _buildingRepository;
+    private readonly IAllocationRepository _allocationRepository;
     private readonly TimeProvider _timeProvider;
 
-    public BuildingService(IBuildingRepository buildingRepository, TimeProvider timeProvider)
+    public BuildingService(IBuildingRepository buildingRepository, IAllocationRepository allocationRepository, TimeProvider timeProvider)
     {
         _buildingRepository = buildingRepository;
+        _allocationRepository = allocationRepository;
         _timeProvider = timeProvider;
     }
 
@@ -59,6 +61,18 @@ public class BuildingService : IBuildingService
         }
 
         await ValidateAsync(dto.Name, dto.StandardRoomCapacity, id);
+
+        // Taking a building out of service (Inactive/Maintenance) has to go through the
+        // dedicated evacuation flow first if residents are still there — this plain CRUD path
+        // must not be able to silently bypass BuildingEvacuationService the way it used to.
+        if (dto.Status is BuildingStatus.Inactive or BuildingStatus.Maintenance)
+        {
+            var activeAllocations = await _allocationRepository.GetActiveByBuildingIdAsync(id);
+            if (activeAllocations.Any())
+            {
+                throw new ArgumentException($"This building still has active residents; evacuate it (POST /api/buildings/{id}/evacuation/execute) before changing its status to {dto.Status}.");
+            }
+        }
 
         building.Name = dto.Name.Trim();
         building.Gender = dto.Gender;
