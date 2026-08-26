@@ -378,14 +378,22 @@ public class HousingGroupService : IHousingGroupService
     {
         List<GroupInvitationDto>? pendingInvitations = null;
 
+        var memberStudentIds = group.Members.Select(m => m.StudentId).ToList();
+        var memberNames = await _userLookupService.LookupUsersAsync(memberStudentIds);
+        var members = memberStudentIds.Select(id =>
+        {
+            memberNames.TryGetValue(id, out var info);
+            return new GroupMemberDto { StudentId = id, Name = info?.FullName };
+        }).ToList();
+
         if (includeInvitations)
         {
             var pending = group.Invitations.Where(i => i.Status == InvitationStatus.Pending).ToList();
-            var names = await _userLookupService.LookupUsersAsync(pending.Select(i => i.InvitedStudentId).ToList());
+            var invitationNames = await _userLookupService.LookupUsersAsync(pending.Select(i => i.InvitedStudentId).ToList());
 
             pendingInvitations = pending.Select(i =>
             {
-                names.TryGetValue(i.InvitedStudentId, out var info);
+                invitationNames.TryGetValue(i.InvitedStudentId, out var info);
                 return new GroupInvitationDto
                 {
                     Id = i.Id,
@@ -405,7 +413,8 @@ public class HousingGroupService : IHousingGroupService
             HousingCycleId = group.HousingCycleId,
             Status = group.Status,
             MaxMembers = group.MaxMembers,
-            MemberStudentIds = group.Members.Select(m => m.StudentId).ToList(),
+            MemberStudentIds = memberStudentIds,
+            Members = members,
             Description = group.Description,
             CreatedAt = group.CreatedAt,
             PendingInvitations = pendingInvitations
