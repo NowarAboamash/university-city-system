@@ -97,4 +97,6 @@ public interface IAllocationRepository : IRepository<Allocation>
     Task<Allocation?> GetByIdWithDetailsAsync(int id);
     Task<(IEnumerable<Allocation> Items, int TotalCount)> GetAllWithDetailsAsync(int? buildingId, int? roomId, PaginationParams pagination);
     Task<IEnumerable<Allocation>> GetActiveByBuildingIdAsync(int buildingId);
+    /// <summary>Every allocation (active or vacated) this student has ever had, individually or via a group they currently belong to.</summary>
+    Task<IEnumerable<Allocation>> GetHistoryByStudentIdAsync(string studentId);
 }

@@ -360,6 +360,12 @@ public class AllocationService : IAllocationService
         return refreshed is null ? null : MapToDto(refreshed, room, GetOccupantIds(refreshed));
     }
 
+    public async Task<IReadOnlyList<AllocationDto>> GetHistoryForStudentAsync(string studentId)
+    {
+        var allocations = await _allocationRepository.GetHistoryByStudentIdAsync(studentId);
+        return allocations.Select(a => MapToDto(a, a.Room, GetOccupantIds(a))).ToList();
+    }
+
     public async Task<AllocationDto?> GetByIdAsync(int id)
     {
         var allocation = await _allocationRepository.GetByIdWithDetailsAsync(id);

@@ -478,4 +478,17 @@ public class AllocationRepository : Repository<Allocation>, IAllocationRepositor
             .Where(a => a.Room.BuildingId == buildingId && a.VacatedAt == null)
             .ToListAsync();
     }
+
+    public async Task<IEnumerable<Allocation>> GetHistoryByStudentIdAsync(string studentId)
+    {
+        return await _dbSet
+            .Include(a => a.Room).ThenInclude(r => r.Building)
+            .Include(a => a.HousingRequest)
+            .Include(a => a.HousingGroup).ThenInclude(g => g!.Members)
+            .Where(a =>
+                (a.HousingRequest != null && a.HousingRequest.StudentId == studentId) ||
+                (a.HousingGroup != null && a.HousingGroup.Members.Any(m => m.StudentId == studentId)))
+            .OrderByDescending(a => a.AllocatedAt)
+            .ToListAsync();
+    }
 }

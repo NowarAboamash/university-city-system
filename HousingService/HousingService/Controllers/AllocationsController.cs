@@ -67,6 +67,14 @@ public class AllocationsController : ControllerBase
     }
 
     [Authorize(Roles = AdminRoles)]
+    [HttpGet("students/{studentId}/history")]
+    public async Task<ActionResult<IReadOnlyList<AllocationDto>>> GetStudentHistory(string studentId)
+    {
+        var history = await _allocationService.GetHistoryForStudentAsync(studentId);
+        return Ok(history);
+    }
+
+    [Authorize(Roles = AdminRoles)]
     [HttpGet]
     public async Task<ActionResult<PagedResult<AllocationDto>>> GetAll([FromQuery] int? buildingId, [FromQuery] int? roomId, [FromQuery] PaginationParams parameters)
     {
