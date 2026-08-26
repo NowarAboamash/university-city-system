@@ -328,6 +328,22 @@ public class HousingRequestService : IHousingRequestService
 
         request.UpdatedAt = now;
 
+        // Accepting/rejecting the whole request implicitly finalizes any document still
+        // awaiting individual review — an admin doesn't decide the request without having
+        // judged its documents. Already-reviewed documents (from ReviewDocumentAsync) are left as-is.
+        if (dto.Status is AdmissionDecisionStatus.Accepted or AdmissionDecisionStatus.Rejected)
+        {
+            var finalStatus = dto.Status == AdmissionDecisionStatus.Accepted
+                ? DocumentReviewStatus.Approved
+                : DocumentReviewStatus.Rejected;
+
+            foreach (var document in request.Documents.Where(d => d.ReviewStatus == DocumentReviewStatus.Pending))
+            {
+                document.ReviewStatus = finalStatus;
+                document.ReviewedAt = now;
+            }
+        }
+
         // Payment integration hook: a future PaymentService charges the housing fee once a
         // request is Accepted. Not wired up yet — PaymentService doesn't exist (see project
         // memory) — but this is the single point where that call/event would be triggered.
