@@ -55,6 +55,11 @@ public class HousingGroupService : IHousingGroupService
             throw new ArgumentException("You are already part of a housing group.");
         }
 
+        if (leaderRequest.AdmissionDecision?.Status == AdmissionDecisionStatus.Rejected)
+        {
+            throw new ArgumentException("You cannot create a housing group because your housing request was rejected.");
+        }
+
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var code = await GenerateUniqueCodeAsync(now.Year);
 
@@ -146,6 +151,11 @@ public class HousingGroupService : IHousingGroupService
             throw new ArgumentException("You are already part of a housing group.");
         }
 
+        if (request.AdmissionDecision?.Status == AdmissionDecisionStatus.Rejected)
+        {
+            throw new ArgumentException("You cannot join a housing group because your housing request was rejected.");
+        }
+
         if (request.Gender != group.Members.First(m => m.StudentId == group.LeaderId).Gender)
         {
             throw new ArgumentException("You must be the same gender as the group's leader to join.");
@@ -235,7 +245,8 @@ public class HousingGroupService : IHousingGroupService
         }
 
         var memberRequest = await _requestRepository.GetByStudentAndCycleAsync(invitation.InvitedStudentId, group.HousingCycleId);
-        if (memberRequest is null || memberRequest.HousingGroupId is not null)
+        if (memberRequest is null || memberRequest.HousingGroupId is not null
+            || memberRequest.AdmissionDecision?.Status == AdmissionDecisionStatus.Rejected)
         {
             throw new ArgumentException("This student's housing request is no longer eligible to join.");
         }

@@ -162,6 +162,7 @@ public class HousingRequestRepository : Repository<HousingRequest>, IHousingRequ
     public async Task<HousingRequest?> GetByStudentAndCycleAsync(string studentId, int housingCycleId)
     {
         return await _dbSet
+            .Include(h => h.AdmissionDecision)
             .FirstOrDefaultAsync(h => h.StudentId == studentId && h.HousingCycleId == housingCycleId);
     }
 
