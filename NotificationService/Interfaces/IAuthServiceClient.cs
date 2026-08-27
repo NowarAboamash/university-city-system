@@ -1,6 +1,10 @@
 namespace NotificationService.Interfaces
 {
-    public sealed record AuthUserFcmInfo(string Id, string? FcmToken);
+    // NotificationsEnabled is the user's own "mute push" preference (defaults to true).
+    // Only the id-targeted lookup path carries a real value; the role/broadcast path
+    // relies on AuthService having already filtered muted users out, so it leaves the
+    // default. It gates the Firebase push only — the in-app inbox row is still written.
+    public sealed record AuthUserFcmInfo(string Id, string? FcmToken, bool NotificationsEnabled = true);
 
     // Resolves FCM push tokens from AuthService's internal endpoints. AuthService is the
     // single source of truth for device tokens — NotificationService no longer stores its

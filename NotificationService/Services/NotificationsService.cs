@@ -205,8 +205,11 @@ namespace NotificationService.Services
                 recipientStudentIds = targetStudentIds!.Distinct().ToList();
 
                 var lookup = await _authServiceClient.LookupUsersAsync(recipientStudentIds);
+                // A user who muted push (NotificationsEnabled == false) is dropped from the
+                // token map only — they stay in recipientStudentIds below, so their in-app
+                // inbox row is still written, exactly as when a push fails for a dead device.
                 tokenToStudentId = recipientStudentIds
-                    .Where(id => lookup.TryGetValue(id, out var u) && !string.IsNullOrEmpty(u.FcmToken))
+                    .Where(id => lookup.TryGetValue(id, out var u) && !string.IsNullOrEmpty(u.FcmToken) && u.NotificationsEnabled)
                     .ToDictionary(id => lookup[id].FcmToken!, id => id);
             }
             else

@@ -54,7 +54,9 @@ namespace NotificationService.Services
 
                     foreach (var (id, user) in payload.Data)
                     {
-                        result[id] = new AuthUserFcmInfo(user.Id, user.FcmToken);
+                        // Absent/null => treat as enabled: the field defaults to true on
+                        // AuthService and every existing account is considered opted in.
+                        result[id] = new AuthUserFcmInfo(user.Id, user.FcmToken, user.NotificationsEnabled ?? true);
                     }
                 }
             }
@@ -115,6 +117,7 @@ namespace NotificationService.Services
         {
             public string Id { get; set; } = string.Empty;
             public string? FcmToken { get; set; }
+            public bool? NotificationsEnabled { get; set; }
         }
 
         private sealed class FcmTokensResponse
