@@ -227,7 +227,7 @@
         { "Host": "housingservice001.runasp.net", "Port": 80 }
       ],
       "UpstreamPathTemplate": "/api/housing-requests/{everything}",
-      "UpstreamHttpMethod": [ "GET", "PUT", "POST" ],
+      "UpstreamHttpMethod": [ "GET", "PUT", "POST", "DELETE" ],
       "SwaggerKey": "housing"
     },
     {
@@ -267,7 +267,7 @@
         { "Host": "housingservice001.runasp.net", "Port": 80 }
       ],
       "UpstreamPathTemplate": "/api/allocations/{everything}",
-      "UpstreamHttpMethod": [ "GET" ],
+      "UpstreamHttpMethod": [ "GET", "POST" ],
       "SwaggerKey": "housing"
     },
     {

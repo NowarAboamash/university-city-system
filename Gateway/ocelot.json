@@ -227,7 +227,7 @@
         { "Host": "localhost", "Port": 5054 }
       ],
       "UpstreamPathTemplate": "/api/housing-requests/{everything}",
-      "UpstreamHttpMethod": [ "GET", "PUT", "POST" ],
+      "UpstreamHttpMethod": [ "GET", "PUT", "POST", "DELETE" ],
       "SwaggerKey": "housing"
     },
     {
@@ -267,7 +267,7 @@
         { "Host": "localhost", "Port": 5054 }
       ],
       "UpstreamPathTemplate": "/api/allocations/{everything}",
-      "UpstreamHttpMethod": [ "GET" ],
+      "UpstreamHttpMethod": [ "GET", "POST" ],
       "SwaggerKey": "housing"
     },
     {
