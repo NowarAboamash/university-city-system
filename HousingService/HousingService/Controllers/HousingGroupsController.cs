@@ -134,4 +134,26 @@ public class HousingGroupsController : ControllerBase
             _ => NoContent()
         };
     }
+
+    [Authorize(Roles = StudentRole)]
+    [HttpPost("mine/members/{studentId}/remove")]
+    public async Task<IActionResult> RemoveMemberAsLeader(string studentId)
+    {
+        if (!User.TryGetUserId(out var leaderId))
+        {
+            return Unauthorized("Access token does not contain a valid user id.");
+        }
+
+        try
+        {
+            var result = await _groupService.RemoveMemberAsLeaderAsync(leaderId, studentId);
+            return result is true
+                ? NoContent()
+                : NotFound("You are not the leader of a group, or that student is not a member.");
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
 }

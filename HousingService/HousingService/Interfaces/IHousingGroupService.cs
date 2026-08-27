@@ -23,4 +23,13 @@ public interface IHousingGroupService
 
     /// <returns>null if the group or member wasn't found.</returns>
     Task<bool?> RemoveMemberAsync(int groupId, string studentId);
+
+    /// <summary>
+    /// Lets the current leader remove another member from their own group for the open cycle.
+    /// </summary>
+    /// <returns>
+    /// null if the caller isn't currently the leader of a group, or the target isn't a member;
+    /// true on success. Throws <see cref="ArgumentException"/> if the leader targets themselves.
+    /// </returns>
+    Task<bool?> RemoveMemberAsLeaderAsync(string leaderId, string studentId);
 }

@@ -371,6 +371,49 @@ public class HousingGroupService : IHousingGroupService
         return true;
     }
 
+    public async Task<bool?> RemoveMemberAsLeaderAsync(string leaderId, string studentId)
+    {
+        var cycle = await _cycleRepository.GetOpenAsync();
+        if (cycle is null)
+        {
+            return null;
+        }
+
+        var leaderRequest = await _requestRepository.GetByStudentAndCycleAsync(leaderId, cycle.Id);
+        if (leaderRequest?.HousingGroupId is null)
+        {
+            return null;
+        }
+
+        var group = await _groupRepository.GetByIdWithDetailsAsync(leaderRequest.HousingGroupId.Value);
+        if (group is null || group.LeaderId != leaderId)
+        {
+            return null;
+        }
+
+        if (studentId == leaderId)
+        {
+            throw new ArgumentException("The leader cannot remove themselves. Use the leave endpoint to hand over leadership.");
+        }
+
+        var memberRequest = group.Members.FirstOrDefault(m => m.StudentId == studentId);
+        if (memberRequest is null)
+        {
+            return null;
+        }
+
+        await RemoveMemberFromGroupAsync(group, memberRequest);
+
+        var removedData = System.Text.Json.JsonSerializer.Serialize(new { type = "group_member_removed", relatedId = group.Id });
+        await _notificationPublisher.NotifyUserAsync(
+            studentId,
+            "تمت إزالتك من الغروب",
+            $"قام قائد الغروب {group.Code} بإزالتك من الغروب.",
+            removedData);
+
+        return true;
+    }
+
     private async Task RemoveMemberFromGroupAsync(HousingGroup group, HousingRequest memberRequest)
     {
         var now = _timeProvider.GetUtcNow().UtcDateTime;

@@ -1228,6 +1228,28 @@
         }
       }
     },
+    "/api/housing-groups/mine/members/{studentId}/remove": {
+      "post": {
+        "tags": [
+          "HousingGroups"
+        ],
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/housing-requests": {
       "post": {
         "tags": [

@@ -96,4 +96,54 @@ public class HousingGroupServiceTests
         Assert.Equal(RoomStatus.Occupied, ctx.Db.Rooms.Single(r => r.Id == room.Id).Status);
         Assert.Contains(ctx.Notifications.Sent, n => n.StudentId == "leader" && n.Title.Contains("مغادرة"));
     }
+
+    [Fact]
+    public async Task RemoveMemberAsLeaderAsync_LeaderRemovesMember_DropsFromRoster_NotifiesRemovedStudent()
+    {
+        using var ctx = new TestContext();
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+
+        var group = ctx.AddGroup(1000, "leader", cycle.Id);
+        ctx.AddRequest(1000, "leader", cycle.Id, gov.Id, Gender.Male, housingGroupId: group.Id);
+        ctx.AddRequest(1001, "member-2", cycle.Id, gov.Id, Gender.Male, housingGroupId: group.Id);
+
+        var result = await ctx.GroupService.RemoveMemberAsLeaderAsync("leader", "member-2");
+
+        Assert.True(result);
+        Assert.Null(ctx.Db.HousingRequests.Single(r => r.StudentId == "member-2").HousingGroupId);
+        Assert.Equal("leader", ctx.Db.HousingGroups.Single(g => g.Id == group.Id).LeaderId);
+        Assert.Contains(ctx.Notifications.Sent, n => n.StudentId == "member-2" && n.Title.Contains("إزالتك"));
+    }
+
+    [Fact]
+    public async Task RemoveMemberAsLeaderAsync_NonLeaderCaller_ReturnsNull()
+    {
+        using var ctx = new TestContext();
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+
+        var group = ctx.AddGroup(1000, "leader", cycle.Id);
+        ctx.AddRequest(1000, "leader", cycle.Id, gov.Id, Gender.Male, housingGroupId: group.Id);
+        ctx.AddRequest(1001, "member-2", cycle.Id, gov.Id, Gender.Male, housingGroupId: group.Id);
+
+        var result = await ctx.GroupService.RemoveMemberAsLeaderAsync("member-2", "leader");
+
+        Assert.Null(result);
+        Assert.Equal(group.Id, ctx.Db.HousingRequests.Single(r => r.StudentId == "leader").HousingGroupId);
+    }
+
+    [Fact]
+    public async Task RemoveMemberAsLeaderAsync_LeaderTargetsSelf_Throws()
+    {
+        using var ctx = new TestContext();
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+
+        var group = ctx.AddGroup(1000, "leader", cycle.Id);
+        ctx.AddRequest(1000, "leader", cycle.Id, gov.Id, Gender.Male, housingGroupId: group.Id);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            ctx.GroupService.RemoveMemberAsLeaderAsync("leader", "leader"));
+    }
 }
