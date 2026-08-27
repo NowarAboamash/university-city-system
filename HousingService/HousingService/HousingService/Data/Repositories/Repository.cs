@@ -491,4 +491,17 @@ public class AllocationRepository : Repository<Allocation>, IAllocationRepositor
             .OrderByDescending(a => a.AllocatedAt)
             .ToListAsync();
     }
+
+    public async Task<Allocation?> GetActiveByStudentIdAsync(string studentId)
+    {
+        return await _dbSet
+            .Include(a => a.Room).ThenInclude(r => r.Building)
+            .Include(a => a.HousingRequest)
+            .Include(a => a.HousingGroup).ThenInclude(g => g!.Members)
+            .Where(a => a.VacatedAt == null &&
+                ((a.HousingRequest != null && a.HousingRequest.StudentId == studentId) ||
+                 (a.HousingGroup != null && a.HousingGroup.Members.Any(m => m.StudentId == studentId))))
+            .OrderByDescending(a => a.AllocatedAt)
+            .FirstOrDefaultAsync();
+    }
 }

@@ -251,4 +251,135 @@ public class AllocationServiceTests
         Assert.Contains(history, a => a.VacatedAt is not null);
         Assert.Contains(history, a => a.VacatedAt is null);
     }
+
+    [Fact]
+    public async Task VacateStudentAsync_IndividualStudent_EndsTheirAllocation()
+    {
+        using var ctx = new TestContext();
+        var building = ctx.AddBuilding(1000, Gender.Female, capacity: 4);
+        var room = ctx.AddRoom(1000, building.Id);
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var request = ctx.AddRequest(1000, "student-1", cycle.Id, gov.Id, Gender.Female);
+        var allocation = ctx.AddAllocation(1000, room.Id, housingRequestId: request.Id);
+
+        var result = await ctx.AllocationService.VacateStudentAsync("student-1", new VacateAllocationDto());
+
+        Assert.NotNull(result);
+        Assert.Equal(allocation.Id, result!.Id);
+        Assert.NotNull(result.VacatedAt);
+        Assert.Equal(RoomStatus.Available, ctx.Db.Rooms.Single(r => r.Id == room.Id).Status);
+    }
+
+    [Fact]
+    public async Task VacateStudentAsync_GroupedStudentWithRoommates_KeepsRestHoused()
+    {
+        using var ctx = new TestContext();
+        var building = ctx.AddBuilding(1000, Gender.Female, capacity: 4);
+        var room = ctx.AddRoom(1000, building.Id);
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var group = ctx.AddGroup(1000, "leader", cycle.Id, HousingGroupStatus.Allocated);
+        ctx.AddRequest(1000, "leader", cycle.Id, gov.Id, Gender.Female, housingGroupId: group.Id);
+        ctx.AddRequest(1001, "member-2", cycle.Id, gov.Id, Gender.Female, housingGroupId: group.Id);
+        var allocation = ctx.AddAllocation(1000, room.Id, housingGroupId: group.Id);
+
+        var result = await ctx.AllocationService.VacateStudentAsync("member-2", new VacateAllocationDto());
+
+        Assert.NotNull(result);
+        Assert.Equal(allocation.Id, result!.Id);
+        Assert.Null(result.VacatedAt);
+        Assert.DoesNotContain("member-2", result.OccupantStudentIds);
+        Assert.Equal(RoomStatus.Occupied, ctx.Db.Rooms.Single(r => r.Id == room.Id).Status);
+    }
+
+    [Fact]
+    public async Task VacateStudentAsync_StudentNotHoused_ReturnsNull()
+    {
+        using var ctx = new TestContext();
+        var result = await ctx.AllocationService.VacateStudentAsync("nobody", new VacateAllocationDto());
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task TransferStudentAsync_IndividualStudent_MovesTheirAllocation()
+    {
+        using var ctx = new TestContext();
+        var building = ctx.AddBuilding(1000, Gender.Female, capacity: 4);
+        var oldRoom = ctx.AddRoom(1000, building.Id, "101");
+        var newRoom = ctx.AddRoom(1001, building.Id, "102");
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var request = ctx.AddRequest(1000, "student-1", cycle.Id, gov.Id, Gender.Female);
+        var allocation = ctx.AddAllocation(1000, oldRoom.Id, housingRequestId: request.Id);
+
+        var result = await ctx.AllocationService.TransferStudentAsync("student-1", new TransferAllocationDto { NewRoomId = newRoom.Id });
+
+        Assert.NotNull(result);
+        Assert.Equal(allocation.Id, result!.Id); // same allocation, just moved
+        Assert.Equal(newRoom.Id, result.RoomId);
+        Assert.Equal(RoomStatus.Available, ctx.Db.Rooms.Single(r => r.Id == oldRoom.Id).Status);
+    }
+
+    [Fact]
+    public async Task TransferStudentAsync_GroupedStudentWithRoommates_SplitsIntoOwnNewAllocation()
+    {
+        using var ctx = new TestContext();
+        var building = ctx.AddBuilding(1000, Gender.Female, capacity: 4);
+        var oldRoom = ctx.AddRoom(1000, building.Id, "101");
+        var newRoom = ctx.AddRoom(1001, building.Id, "102");
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var group = ctx.AddGroup(1000, "leader", cycle.Id, HousingGroupStatus.Allocated);
+        ctx.AddRequest(1000, "leader", cycle.Id, gov.Id, Gender.Female, housingGroupId: group.Id);
+        ctx.AddRequest(1001, "member-2", cycle.Id, gov.Id, Gender.Female, housingGroupId: group.Id);
+        var groupAllocation = ctx.AddAllocation(1000, oldRoom.Id, housingGroupId: group.Id);
+
+        var result = await ctx.AllocationService.TransferStudentAsync("member-2", new TransferAllocationDto { NewRoomId = newRoom.Id });
+
+        Assert.NotNull(result);
+        Assert.NotEqual(groupAllocation.Id, result!.Id); // a brand-new individual allocation, not the group's
+        Assert.Equal(newRoom.Id, result.RoomId);
+        Assert.Equal(["member-2"], result.OccupantStudentIds);
+
+        // The rest of the group stays behind in the old room.
+        Assert.Equal(RoomStatus.Occupied, ctx.Db.Rooms.Single(r => r.Id == oldRoom.Id).Status);
+        var refreshedGroupAllocation = ctx.Db.Allocations.Single(a => a.Id == groupAllocation.Id);
+        Assert.Null(refreshedGroupAllocation.VacatedAt);
+        var refreshedGroup = ctx.Db.HousingGroups.Single(g => g.Id == group.Id);
+        Assert.DoesNotContain(refreshedGroup.Members, m => m.StudentId == "member-2");
+
+        Assert.Equal(RoomStatus.Occupied, ctx.Db.Rooms.Single(r => r.Id == newRoom.Id).Status);
+        Assert.Null(ctx.Db.HousingRequests.Single(r => r.StudentId == "member-2").HousingGroupId);
+    }
+
+    [Fact]
+    public async Task TransferStudentAsync_GroupedOnlyMember_MovesWholeAllocation()
+    {
+        using var ctx = new TestContext();
+        var building = ctx.AddBuilding(1000, Gender.Female, capacity: 4);
+        var oldRoom = ctx.AddRoom(1000, building.Id, "101");
+        var newRoom = ctx.AddRoom(1001, building.Id, "102");
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var group = ctx.AddGroup(1000, "leader", cycle.Id, HousingGroupStatus.Allocated);
+        ctx.AddRequest(1000, "leader", cycle.Id, gov.Id, Gender.Female, housingGroupId: group.Id);
+        var groupAllocation = ctx.AddAllocation(1000, oldRoom.Id, housingGroupId: group.Id);
+
+        var result = await ctx.AllocationService.TransferStudentAsync("leader", new TransferAllocationDto { NewRoomId = newRoom.Id });
+
+        Assert.NotNull(result);
+        Assert.Equal(groupAllocation.Id, result!.Id); // same (group) allocation, just moved
+        Assert.Equal(newRoom.Id, result.RoomId);
+    }
+
+    [Fact]
+    public async Task TransferStudentAsync_StudentNotHoused_ReturnsNull()
+    {
+        using var ctx = new TestContext();
+        var building = ctx.AddBuilding(1000, Gender.Female);
+        var room = ctx.AddRoom(1000, building.Id);
+        var result = await ctx.AllocationService.TransferStudentAsync("nobody", new TransferAllocationDto { NewRoomId = room.Id });
+        Assert.Null(result);
+    }
 }

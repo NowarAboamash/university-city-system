@@ -27,4 +27,12 @@ public interface IAllocationService
 
     /// <summary>Every allocation a student has ever had (active or vacated), individually or via a group they currently belong to, most recent first.</summary>
     Task<IReadOnlyList<AllocationDto>> GetHistoryForStudentAsync(string studentId);
+
+    /// <summary>Removes this specific student from wherever they currently live, without needing to know their allocation id or whether they're individually or group-housed. Delegates to VacateAsync (individual, or a group's last member) or RemoveGroupMemberAsync (a grouped student with roommates remaining).</summary>
+    /// <returns>null if the student has no active allocation. Throws ArgumentException if already vacated (race condition).</returns>
+    Task<AllocationDto?> VacateStudentAsync(string studentId, VacateAllocationDto dto);
+
+    /// <summary>Moves this specific student to a different room. If they're an individual (or their group's only member), moves the whole allocation like TransferAsync. If they have roommates, splits them off into their own new individual allocation in the target room, leaving the rest of the group housed where they were.</summary>
+    /// <returns>null if the student has no active allocation. Throws ArgumentException for the same validation failures as TransferAsync.</returns>
+    Task<AllocationDto?> TransferStudentAsync(string studentId, TransferAllocationDto dto);
 }

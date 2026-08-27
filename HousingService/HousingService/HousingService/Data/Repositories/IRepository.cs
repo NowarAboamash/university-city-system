@@ -99,4 +99,6 @@ public interface IAllocationRepository : IRepository<Allocation>
     Task<IEnumerable<Allocation>> GetActiveByBuildingIdAsync(int buildingId);
     /// <summary>Every allocation (active or vacated) this student has ever had, individually or via a group they currently belong to.</summary>
     Task<IEnumerable<Allocation>> GetHistoryByStudentIdAsync(string studentId);
+    /// <summary>The student's current active (not vacated) allocation, individually or via a group they currently belong to, if any.</summary>
+    Task<Allocation?> GetActiveByStudentIdAsync(string studentId);
 }

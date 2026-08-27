@@ -346,6 +346,103 @@ public class AllocationService : IAllocationService
         return allocations.Select(a => MapToDto(a, a.Room, GetOccupantIds(a))).ToList();
     }
 
+    public async Task<AllocationDto?> VacateStudentAsync(string studentId, VacateAllocationDto dto)
+    {
+        var allocation = await _allocationRepository.GetActiveByStudentIdAsync(studentId);
+        if (allocation is null)
+        {
+            return null;
+        }
+
+        // Individual allocation: ending it removes exactly this student. Group allocation:
+        // reuse the "one member leaves, rest stay housed (or fully vacate if they're the last
+        // one)" routine — this is the same distinction VacateAsync/RemoveGroupMemberAsync
+        // already make, just resolved from a student id instead of a caller-supplied allocation id.
+        return allocation.HousingRequestId is not null
+            ? await VacateAsync(allocation.Id, dto)
+            : await RemoveGroupMemberAsync(allocation.Id, studentId);
+    }
+
+    public async Task<AllocationDto?> TransferStudentAsync(string studentId, TransferAllocationDto dto)
+    {
+        var allocation = await _allocationRepository.GetActiveByStudentIdAsync(studentId);
+        if (allocation is null)
+        {
+            return null;
+        }
+
+        // Individual allocation, or a group of exactly this one student: moving the whole
+        // allocation and moving just this student are the same operation.
+        if (allocation.HousingRequestId is not null || allocation.HousingGroup!.Members.Count == 1)
+        {
+            return await TransferAsync(allocation.Id, dto);
+        }
+
+        return await SplitStudentToNewRoomAsync(allocation, studentId, dto);
+    }
+
+    /// <summary>Pulls one grouped student (who has roommates remaining) out of the shared allocation and gives them their own new individual allocation in a different room.</summary>
+    private async Task<AllocationDto> SplitStudentToNewRoomAsync(Allocation groupAllocation, string studentId, TransferAllocationDto dto)
+    {
+        var group = groupAllocation.HousingGroup!;
+        var memberRequest = group.Members.First(m => m.StudentId == studentId);
+
+        if (dto.NewRoomId == groupAllocation.RoomId)
+        {
+            throw new ArgumentException("The student is already assigned to this room.");
+        }
+
+        var newRoom = await _roomRepository.GetByIdWithOccupantsAsync(dto.NewRoomId);
+        if (newRoom is null)
+        {
+            throw new ArgumentException("Room was not found.");
+        }
+
+        if (!IsGenderMatch(newRoom.Building.Gender, memberRequest.Gender))
+        {
+            throw new ArgumentException("This room's building does not match the required gender.");
+        }
+
+        if (newRoom.Status is not (RoomStatus.Available or RoomStatus.Occupied))
+        {
+            throw new ArgumentException("This room is not available for allocation.");
+        }
+
+        var remaining = newRoom.Building.StandardRoomCapacity - GetCurrentOccupancy(newRoom);
+        if (remaining < 1)
+        {
+            throw new ArgumentException("This room does not have enough remaining capacity.");
+        }
+
+        // Leaving the group frees their old seat and recomputes that room's status via the
+        // shared removal routine (also handles leadership transfer / notifying who's left behind).
+        await _groupService.RemoveMemberAsync(group.Id, studentId);
+
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var newAllocation = new Allocation
+        {
+            HousingRequestId = memberRequest.Id,
+            RoomId = dto.NewRoomId,
+            AllocatedAt = now,
+            CreatedAt = now
+        };
+        await _allocationRepository.AddAsync(newAllocation);
+
+        var newRoomOccupancyAfterMove = GetCurrentOccupancy(newRoom) + 1;
+        newRoom.Status = newRoomOccupancyAfterMove >= newRoom.Building.StandardRoomCapacity ? RoomStatus.Full : RoomStatus.Occupied;
+        newRoom.UpdatedAt = now;
+        _roomRepository.Update(newRoom);
+
+        await _allocationRepository.SaveChangesAsync();
+
+        await _notificationPublisher.NotifyUserAsync(
+            studentId,
+            "تم نقل سكنك",
+            $"تم نقلك إلى غرفة {newRoom.RoomNumber} في مبنى {newRoom.Building.Name}.");
+
+        return MapToDto(newAllocation, newRoom, [studentId]);
+    }
+
     public async Task<AllocationDto?> GetByIdAsync(int id)
     {
         var allocation = await _allocationRepository.GetByIdWithDetailsAsync(id);

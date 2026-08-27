@@ -1,9 +1,13 @@
 # Room Management APIs — Frontend Integration Guide
 
-Covers the three admin actions that change who occupies a room after allocation:
-**vacate** (remove everyone), **remove one group member** (keep the rest), and **transfer** (move to a different room).
+Covers the admin actions that change who occupies a room after allocation:
+**vacate** (remove everyone), **remove one group member** (keep the rest), **transfer** (move to a different room) — plus **student-centric** versions of remove/transfer that take a student id directly instead of an allocation id.
 
-All three live on `AllocationsController` (`/api/allocations`) and are **admin/super_admin only**.
+All of these live on `AllocationsController` (`/api/allocations`) and are **admin/super_admin only**.
+
+**Two ways to call remove/transfer:**
+- **By allocation id** (`/{id}/vacate`, `/{id}/members/{studentId}/remove`, `/{id}/transfer`) — you already know which allocation/room you're acting on (e.g. you're on a room's detail screen).
+- **By student id** (`/students/{studentId}/vacate`, `/students/{studentId}/transfer`) — you only have the student, not their allocation id or which room they're in (e.g. you're on a student's profile screen). The server figures out whether they're housed individually or as part of a group and does the right thing either way. **This is usually the simpler choice for an admin UI built around students, not rooms.**
 
 ## Base URL & Auth
 
@@ -135,16 +139,70 @@ POST /api/allocations/{id}/transfer
 
 ---
 
+## 4. Remove a specific student — student-centric, no allocation lookup needed
+
+```
+POST /api/allocations/students/{studentId}/vacate
+```
+
+**Body** (optional, same as `/vacate`):
+```json
+{ "message": "..." }
+```
+
+**What it does:** Removes **this one student** from wherever they currently live — you don't need to know their allocation id, their room, or whether they're housed individually or as part of a group. The server resolves their current active allocation and then does exactly what `/vacate` or `/members/{studentId}/remove` would:
+- Individual student → their allocation ends (same as calling `/vacate` on it).
+- Grouped student with roommates remaining → just them leaves, the rest of the group keeps the room (same as calling `/members/{studentId}/remove`).
+- Grouped student who's the group's last member → same end result as the individual case (allocation fully ends).
+
+In every case **only this student is affected** — this never evicts a roommate who wasn't named.
+
+**Responses:**
+| Status | Body | Meaning |
+|---|---|---|
+| `200 OK` | `AllocationDto` | Removed. If they were grouped with others, this is their (now-updated) group's allocation; if they were the only/individual occupant, `vacatedAt` is now set. |
+| `404 Not Found` | `"This student is not currently housed."` | No active allocation for this student at all. |
+
+---
+
+## 5. Move a specific student to a different room — student-centric
+
+```
+POST /api/allocations/students/{studentId}/transfer
+```
+
+**Body** (required, same as `/transfer`):
+```json
+{ "newRoomId": 217 }
+```
+
+**What it does:** Moves **this one student** to `newRoomId` — again, no allocation id needed up front. Behavior depends on their current situation:
+- Individual student (or the only member of their group) → their whole allocation moves, same as calling `/transfer` directly (same allocation id, just a new `roomId`).
+- **Grouped student with roommates remaining → they're split off into a brand-new individual allocation in the target room, while the rest of the group stays behind in the old room.** This is the one behavior that has no equivalent on the allocation-id-based `/transfer` (which always moves the *entire* allocation/group together, never one member alone). The response's `id` will be a **new** allocation id, different from the group's original one, and `occupantStudentIds` will contain only this student.
+
+Both the old room (one fewer occupant, group's allocation unaffected otherwise) and the new room (one more occupant) get their `Status` recomputed. The moved student gets the same "تم نقل سكنك" notification as a normal transfer.
+
+**Responses:**
+| Status | Body | Meaning |
+|---|---|---|
+| `200 OK` | `AllocationDto` | Moved. For the split case, this is the **new** allocation (check `id` if you need to distinguish it from the group's original one). |
+| `404 Not Found` | `"This student is not currently housed."` | No active allocation for this student at all. |
+| `400 Bad Request` | Same validation messages as `/transfer` (already-vacated, same room, gender mismatch, room unavailable, insufficient capacity) | The target room doesn't work for this student. |
+
+---
+
 ## Quick decision guide for the UI
 
 | You want to... | Call |
 |---|---|
-| Empty out a room entirely (individual or whole group) | `POST /allocations/{id}/vacate` |
-| Kick one person out of a group's room, everyone else stays | `POST /allocations/{id}/members/{studentId}/remove` |
-| Move a student/group to a different room, still housed | `POST /allocations/{id}/transfer` |
+| Empty out a room entirely (individual or whole group), and you're working from the room | `POST /allocations/{id}/vacate` |
+| Remove one specific student, and you already have their allocation id and know it's a group | `POST /allocations/{id}/members/{studentId}/remove` |
+| **Remove one specific student, working from the student (don't know/care about the allocation id)** | **`POST /allocations/students/{studentId}/vacate`** |
+| Move a student/group to a different room, and you're working from the room/allocation | `POST /allocations/{id}/transfer` |
+| **Move one specific student to a different room, working from the student — even if they're grouped, only they move** | **`POST /allocations/students/{studentId}/transfer`** |
 
-A natural admin UI pattern: on a room's detail screen (list of `occupantStudentIds`), show a "Remove" button per student — call `/members/{studentId}/remove` if it's a group room and more than one student is listed, or `/vacate` if it's a single-occupant (individual) room. A "Move room" button on the same screen opens a room picker (you can source candidates from `GET /api/allocations/candidate-rooms?housingGroupId=` / `?housingRequestId=`) and calls `/transfer` with the chosen `newRoomId`.
+A natural admin UI pattern: on a **student's** profile screen, a "Remove from housing" button calls `/students/{studentId}/vacate`, and a "Move to another room" button (opening a room picker, sourced from `GET /api/allocations/candidate-rooms?housingRequestId=` for an individual or `?housingGroupId=` for a group) calls `/students/{studentId}/transfer` — you never need to look up an allocation id first. On a **room's** detail screen instead (list of `occupantStudentIds`), the `{id}`-based endpoints are more natural since you already have the allocation loaded.
 
 ## Notifications
 
-All three actions push an in-app notification to the affected student(s) automatically (server-side, via NotificationService) — no separate call needed from the frontend to inform the student. If you have a notifications inbox screen, it reads from NotificationService's own `GET /api/notifications/mine`, independent of these calls.
+Every one of these actions pushes an in-app notification to the affected student(s) automatically (server-side, via NotificationService) — no separate call needed from the frontend to inform the student. If you have a notifications inbox screen, it reads from NotificationService's own `GET /api/notifications/mine`, independent of these calls.

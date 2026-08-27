@@ -74,6 +74,40 @@ public class AllocationsController : ControllerBase
         return Ok(history);
     }
 
+    // Student-centric convenience actions: resolve the student's current allocation
+    // themselves (individual or via whichever group they're in), no allocation id or room id
+    // needed up front — unlike /{id}/vacate and /{id}/transfer, which operate on a room's
+    // allocation directly.
+    [Authorize(Roles = AdminRoles)]
+    [HttpPost("students/{studentId}/vacate")]
+    public async Task<ActionResult<AllocationDto>> VacateStudent(string studentId, VacateAllocationDto dto)
+    {
+        try
+        {
+            var result = await _allocationService.VacateStudentAsync(studentId, dto);
+            return result is null ? NotFound("This student is not currently housed.") : Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [Authorize(Roles = AdminRoles)]
+    [HttpPost("students/{studentId}/transfer")]
+    public async Task<ActionResult<AllocationDto>> TransferStudent(string studentId, TransferAllocationDto dto)
+    {
+        try
+        {
+            var result = await _allocationService.TransferStudentAsync(studentId, dto);
+            return result is null ? NotFound("This student is not currently housed.") : Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [Authorize(Roles = AdminRoles)]
     [HttpGet]
     public async Task<ActionResult<PagedResult<AllocationDto>>> GetAll([FromQuery] int? buildingId, [FromQuery] int? roomId, [FromQuery] PaginationParams parameters)
