@@ -22,6 +22,7 @@ public sealed class TestContext : IDisposable
     public FixedTimeProvider Clock { get; }
     public FakeNotificationPublisher Notifications { get; } = new();
     public FakeImageUploader ImageUploader { get; } = new();
+    public FakeWalletClient WalletClient { get; } = new();
 
     public IBuildingRepository BuildingRepository { get; }
     public IRoomRepository RoomRepository { get; }
@@ -31,6 +32,7 @@ public sealed class TestContext : IDisposable
     public IHousingGroupRepository GroupRepository { get; }
     public IGroupInvitationRepository InvitationRepository { get; }
     public IAllocationRepository AllocationRepository { get; }
+    public IHousingSettingsRepository SettingsRepository { get; }
 
     public IHousingGroupService GroupService { get; }
     public IAllocationService AllocationService { get; }
@@ -38,6 +40,8 @@ public sealed class TestContext : IDisposable
     public IRoomService RoomService { get; }
     public IBuildingService BuildingService { get; }
     public IBuildingEvacuationService EvacuationService { get; }
+    public IHousingSettingsService SettingsService { get; }
+    public IPaymentReminderService PaymentReminderService { get; }
 
     public TestContext(DateTimeOffset? now = null)
     {
@@ -57,6 +61,7 @@ public sealed class TestContext : IDisposable
         GroupRepository = new HousingGroupRepository(Db);
         InvitationRepository = new GroupInvitationRepository(Db);
         AllocationRepository = new AllocationRepository(Db);
+        SettingsRepository = new HousingSettingsRepository(Db);
 
         var userLookup = new FakeUserLookupService();
 
@@ -71,11 +76,13 @@ public sealed class TestContext : IDisposable
         RequestService = new HousingRequestService(
             RequestRepository, GovernorateRepository, CycleRepository, BuildingRepository,
             AllocationRepository, InvitationRepository, ImageUploader, Notifications,
-            GroupService, AllocationService, Clock);
+            GroupService, AllocationService, SettingsRepository, WalletClient, Clock);
 
         RoomService = new RoomService(RoomRepository, BuildingRepository, Clock);
         BuildingService = new BuildingService(BuildingRepository, AllocationRepository, Clock);
         EvacuationService = new BuildingEvacuationService(BuildingRepository, AllocationRepository, RoomRepository, Notifications, Clock);
+        SettingsService = new HousingSettingsService(SettingsRepository, Clock);
+        PaymentReminderService = new PaymentReminderService(RequestRepository, SettingsRepository, Notifications, Clock);
     }
 
     // --- Seed helpers -----------------------------------------------------
@@ -143,7 +150,8 @@ public sealed class TestContext : IDisposable
 
     /// <summary>Creates a HousingRequest, optionally already Accepted, optionally already in a group.</summary>
     public HousingRequest AddRequest(int id, string studentId, int cycleId, int governorateId, Gender gender,
-        int? housingGroupId = null, AdmissionDecisionStatus? decisionStatus = null)
+        int? housingGroupId = null, AdmissionDecisionStatus? decisionStatus = null,
+        DateTime? paymentDueDate = null, bool isPaid = false, bool reminderSent = false)
     {
         var request = new HousingRequest
         {
@@ -156,6 +164,10 @@ public sealed class TestContext : IDisposable
             DetailedAddress = "Test address",
             HousingGroupId = housingGroupId,
             Status = HousingRequestStatus.Locked,
+            PaymentDueDate = paymentDueDate,
+            IsPaid = isPaid,
+            PaidAt = isPaid ? Clock.GetUtcNow().UtcDateTime : null,
+            ReminderSent = reminderSent,
             SubmittedAt = Clock.GetUtcNow().UtcDateTime,
             CreatedAt = Clock.GetUtcNow().UtcDateTime
         };

@@ -21,6 +21,7 @@ public class HousingDbContext : DbContext
     public DbSet<Allocation> Allocations { get; set; } = null!;
     public DbSet<HousingCycle> HousingCycles { get; set; } = null!;
     public DbSet<Governorate> Governorates { get; set; } = null!;
+    public DbSet<HousingSettings> HousingSettings { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -187,6 +188,22 @@ public class HousingDbContext : DbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.HasIndex(e => e.Name).IsUnique();
             entity.HasData(new Governorate { Id = 1, Name = "حلب", CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) });
+        });
+
+        // Configure HousingSettings entity — a single fixed row (Id = 1) holding the
+        // admin-editable payment deadline / reminder / fee configuration.
+        modelBuilder.Entity<HousingSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.HousingFeeAmount).HasColumnType("decimal(18,2)");
+            entity.HasData(new HousingSettings
+            {
+                Id = 1,
+                PaymentDeadlineDays = 15,
+                ReminderDaysBefore = 3,
+                HousingFeeAmount = 0m,
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            });
         });
     }
 

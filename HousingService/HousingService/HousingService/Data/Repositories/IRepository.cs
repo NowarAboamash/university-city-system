@@ -46,6 +46,9 @@ public interface IHousingRequestRepository : IRepository<HousingRequest>
     Task<IEnumerable<HousingRequest>> GetByGroupIdAsync(int groupId);
     Task<HousingRequest?> GetByIdWithDocumentsAsync(int id);
     Task<(IEnumerable<HousingRequest> Items, int TotalCount)> GetAllWithFiltersAsync(int? housingCycleId, int? governorateId, HousingRequestStatus? status, AdmissionDecisionStatus? admissionStatus, PaginationParams pagination);
+    /// <summary>Accepted, unpaid requests whose payment reminder hasn't been sent yet and whose
+    /// due date falls before <paramref name="dueDateCutoffExclusive"/>.</summary>
+    Task<IEnumerable<HousingRequest>> GetDueForPaymentReminderAsync(DateTime dueDateCutoffExclusive);
 }
 
 public interface IHousingRequestDocumentRepository : IRepository<HousingRequestDocument>
@@ -59,6 +62,12 @@ public interface IHousingRequestDocumentRepository : IRepository<HousingRequestD
 public interface IGovernorateRepository : IRepository<Governorate>
 {
     Task<Governorate?> GetByNameAsync(string name);
+}
+
+public interface IHousingSettingsRepository : IRepository<HousingSettings>
+{
+    /// <summary>The single settings row, created with defaults if it somehow doesn't exist yet.</summary>
+    Task<HousingSettings> GetAsync();
 }
 
 public interface IHousingGroupRepository : IRepository<HousingGroup>

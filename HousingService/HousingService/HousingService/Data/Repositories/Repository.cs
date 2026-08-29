@@ -222,6 +222,19 @@ public class HousingRequestRepository : Repository<HousingRequest>, IHousingRequ
 
         return (items, totalCount);
     }
+
+    public async Task<IEnumerable<HousingRequest>> GetDueForPaymentReminderAsync(DateTime dueDateCutoffExclusive)
+    {
+        return await _dbSet
+            .Include(h => h.AdmissionDecision)
+            .Where(h => !h.IsPaid
+                && !h.ReminderSent
+                && h.PaymentDueDate != null
+                && h.PaymentDueDate < dueDateCutoffExclusive
+                && h.AdmissionDecision != null
+                && h.AdmissionDecision.Status == AdmissionDecisionStatus.Accepted)
+            .ToListAsync();
+    }
 }
 
 public class HousingRequestDocumentRepository : Repository<HousingRequestDocument>, IHousingRequestDocumentRepository
@@ -264,6 +277,26 @@ public class GovernorateRepository : Repository<Governorate>, IGovernorateReposi
     public async Task<Governorate?> GetByNameAsync(string name)
     {
         return await _dbSet.FirstOrDefaultAsync(g => g.Name == name);
+    }
+}
+
+public class HousingSettingsRepository : Repository<HousingSettings>, IHousingSettingsRepository
+{
+    public HousingSettingsRepository(HousingDbContext context) : base(context) { }
+
+    public async Task<HousingSettings> GetAsync()
+    {
+        var settings = await _dbSet.OrderBy(s => s.Id).FirstOrDefaultAsync();
+        if (settings is null)
+        {
+            // Defensive: the row is seeded via migration/HasData, but never let a missing
+            // row take down the reminder job or the settings endpoint.
+            settings = new HousingSettings { Id = 1 };
+            await _dbSet.AddAsync(settings);
+            await _context.SaveChangesAsync();
+        }
+
+        return settings;
     }
 }
 

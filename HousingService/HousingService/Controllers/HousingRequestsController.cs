@@ -16,10 +16,12 @@ public class HousingRequestsController : ControllerBase
     private const string StudentRole = "student";
 
     private readonly IHousingRequestService _requestService;
+    private readonly IHousingSettingsService _settingsService;
 
-    public HousingRequestsController(IHousingRequestService requestService)
+    public HousingRequestsController(IHousingRequestService requestService, IHousingSettingsService settingsService)
     {
         _requestService = requestService;
+        _settingsService = settingsService;
     }
 
     [Authorize(Roles = StudentRole)]
@@ -147,6 +149,51 @@ public class HousingRequestsController : ControllerBase
         {
             var result = await _requestService.MakeDecisionAsync(id, dto, reviewedBy);
             return result is null ? NotFound() : Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [Authorize(Roles = StudentRole)]
+    [HttpPost("{id:int}/pay")]
+    public async Task<IActionResult> Pay(int id)
+    {
+        if (!User.TryGetUserId(out var studentId))
+        {
+            return Unauthorized("Access token does not contain a valid user id.");
+        }
+
+        var result = await _requestService.PayAsync(studentId, id);
+        return result.Outcome switch
+        {
+            PaymentOutcome.Success => Ok(new { message = result.Message, balance = result.NewBalance }),
+            PaymentOutcome.RequestNotFound => NotFound(),
+            PaymentOutcome.NotOwned => StatusCode(StatusCodes.Status403Forbidden, new { message = result.Message }),
+            PaymentOutcome.NotAccepted => BadRequest(new { message = result.Message }),
+            PaymentOutcome.AlreadyPaid => Conflict(new { message = result.Message }),
+            PaymentOutcome.FeeNotConfigured => Conflict(new { message = result.Message }),
+            PaymentOutcome.InsufficientBalance => StatusCode(StatusCodes.Status402PaymentRequired, new { message = result.Message }),
+            PaymentOutcome.GatewayError => StatusCode(StatusCodes.Status502BadGateway, new { message = result.Message }),
+            _ => StatusCode(StatusCodes.Status500InternalServerError, new { message = result.Message })
+        };
+    }
+
+    [Authorize(Roles = AdminRoles)]
+    [HttpGet("settings")]
+    public async Task<ActionResult<HousingSettingsDto>> GetSettings()
+    {
+        return Ok(await _settingsService.GetAsync());
+    }
+
+    [Authorize(Roles = AdminRoles)]
+    [HttpPut("settings")]
+    public async Task<ActionResult<HousingSettingsDto>> UpdateSettings(UpdateHousingSettingsDto dto)
+    {
+        try
+        {
+            return Ok(await _settingsService.UpdateAsync(dto));
         }
         catch (ArgumentException ex)
         {

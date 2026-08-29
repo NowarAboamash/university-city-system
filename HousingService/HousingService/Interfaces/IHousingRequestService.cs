@@ -21,6 +21,9 @@ public interface IHousingRequestService
 
     Task<HousingRequestDto?> MakeDecisionAsync(int requestId, MakeAdmissionDecisionDto dto, string reviewedBy);
 
+    /// <summary>Charges the housing fee from the student's wallet and marks the request paid on success.</summary>
+    Task<PayHousingRequestResultDto> PayAsync(string studentId, int requestId);
+
     /// <returns>null if not found, true once deleted. Throws ArgumentException if the request (or its group) has an active room allocation.</returns>
     Task<bool?> DeleteAsync(int id, string performedBy, bool performedByAdmin);
 }

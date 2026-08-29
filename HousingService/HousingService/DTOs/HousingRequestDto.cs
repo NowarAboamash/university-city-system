@@ -41,4 +41,10 @@ public class HousingRequestDto
     public DateTime SubmittedAt { get; set; }
 
     public DateTime? LockedAt { get; set; }
+
+    public DateTime? PaymentDueDate { get; set; }
+
+    public bool IsPaid { get; set; }
+
+    public DateTime? PaidAt { get; set; }
 }

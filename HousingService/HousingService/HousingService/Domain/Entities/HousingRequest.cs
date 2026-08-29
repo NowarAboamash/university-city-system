@@ -28,6 +28,16 @@ public class HousingRequest
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
+    // --- Payment (housing fee) ---------------------------------------------
+    // The fee is only owed once a request is Accepted, so PaymentDueDate stays null until
+    // the first AdmissionDecision == Accepted, at which point it's set to
+    // now + HousingSettings.PaymentDeadlineDays and never moved again.
+    public DateTime? PaymentDueDate { get; set; }
+    public bool IsPaid { get; set; }
+    public DateTime? PaidAt { get; set; }
+    // Guards the automatic reminder against being sent more than once per request.
+    public bool ReminderSent { get; set; }
+
     // Navigation properties
     public virtual Governorate Governorate { get; set; } = null!;
     public virtual HousingCycle HousingCycle { get; set; } = null!;

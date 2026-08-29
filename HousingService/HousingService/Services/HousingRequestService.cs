@@ -2,6 +2,7 @@ using HousingService.Data.Repositories;
 using HousingService.Domain.Entities;
 using HousingService.Domain.Enums;
 using HousingService.DTOs;
+using HousingService.External;
 using HousingService.Interfaces;
 using Microsoft.AspNetCore.Http;
 using SharedKernel.Media;
@@ -22,6 +23,8 @@ public class HousingRequestService : IHousingRequestService
     private readonly INotificationPublisher _notificationPublisher;
     private readonly IHousingGroupService _groupService;
     private readonly IAllocationService _allocationService;
+    private readonly IHousingSettingsRepository _settingsRepository;
+    private readonly IWalletClient _walletClient;
     private readonly TimeProvider _timeProvider;
 
     public HousingRequestService(
@@ -35,6 +38,8 @@ public class HousingRequestService : IHousingRequestService
         INotificationPublisher notificationPublisher,
         IHousingGroupService groupService,
         IAllocationService allocationService,
+        IHousingSettingsRepository settingsRepository,
+        IWalletClient walletClient,
         TimeProvider timeProvider)
     {
         _requestRepository = requestRepository;
@@ -47,6 +52,8 @@ public class HousingRequestService : IHousingRequestService
         _notificationPublisher = notificationPublisher;
         _groupService = groupService;
         _allocationService = allocationService;
+        _settingsRepository = settingsRepository;
+        _walletClient = walletClient;
         _timeProvider = timeProvider;
     }
 
@@ -353,9 +360,16 @@ public class HousingRequestService : IHousingRequestService
             }
         }
 
-        // Payment integration hook: a future PaymentService charges the housing fee once a
-        // request is Accepted. Not wired up yet — PaymentService doesn't exist (see project
-        // memory) — but this is the single point where that call/event would be triggered.
+        // Payment: the housing fee is only owed once a request is Accepted. Stamp the payment
+        // deadline the first time that happens, from the current settings value — so a later
+        // change to PaymentDeadlineDays never moves an already-accepted request's deadline.
+        // A decision reversed away from and back to Accepted keeps its original deadline.
+        if (dto.Status == AdmissionDecisionStatus.Accepted && request.PaymentDueDate is null && !request.IsPaid)
+        {
+            var settings = await _settingsRepository.GetAsync();
+            request.PaymentDueDate = now.AddDays(settings.PaymentDeadlineDays);
+            request.ReminderSent = false;
+        }
 
         _requestRepository.Update(request);
         await _requestRepository.SaveChangesAsync();
@@ -398,6 +412,86 @@ public class HousingRequestService : IHousingRequestService
 
         return MapToDto(request);
     }
+
+    public async Task<PayHousingRequestResultDto> PayAsync(string studentId, int requestId)
+    {
+        var request = await _requestRepository.GetByIdWithDocumentsAsync(requestId);
+        if (request is null)
+        {
+            return Fail(PaymentOutcome.RequestNotFound, "طلب التسكين غير موجود.");
+        }
+
+        if (request.StudentId != studentId)
+        {
+            return Fail(PaymentOutcome.NotOwned, "لا يمكنك دفع رسوم طلب لا يخصّك.");
+        }
+
+        if (request.IsPaid)
+        {
+            return Fail(PaymentOutcome.AlreadyPaid, "تم دفع رسوم هذا الطلب مسبقاً.");
+        }
+
+        if (request.AdmissionDecision?.Status != AdmissionDecisionStatus.Accepted)
+        {
+            return Fail(PaymentOutcome.NotAccepted, "لا يمكن الدفع إلا بعد قبول طلب التسكين.");
+        }
+
+        var settings = await _settingsRepository.GetAsync();
+        if (settings.HousingFeeAmount <= 0)
+        {
+            return Fail(PaymentOutcome.FeeNotConfigured, "لم يتم تحديد رسم السكن بعد. حاول لاحقاً.");
+        }
+
+        WalletChargeResult charge;
+        try
+        {
+            charge = await _walletClient.ChargeAsync(
+                request.StudentId,
+                settings.HousingFeeAmount,
+                $"housing-request-{request.Id}",
+                $"دفع رسوم طلب سكن رقم {request.Id}");
+        }
+        catch (Exception)
+        {
+            // AuthService unreachable / 5xx / misconfig — never mark the request paid.
+            return Fail(PaymentOutcome.GatewayError, "تعذّر إتمام الدفع حالياً. حاول لاحقاً.");
+        }
+
+        if (charge.InsufficientBalance)
+        {
+            return Fail(PaymentOutcome.InsufficientBalance, "رصيدك لا يكفي لدفع رسوم السكن.");
+        }
+
+        if (!charge.Success)
+        {
+            return Fail(PaymentOutcome.GatewayError, "تعذّر إتمام الدفع حالياً. حاول لاحقاً.");
+        }
+
+        // The IsPaid check above is the double-charge guard; a very tight race between two
+        // concurrent calls could still double-charge before this save lands — acceptable for now.
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        request.IsPaid = true;
+        request.PaidAt = now;
+        request.UpdatedAt = now;
+        _requestRepository.Update(request);
+        await _requestRepository.SaveChangesAsync();
+
+        await _notificationPublisher.NotifyUserAsync(
+            request.StudentId,
+            "تم دفع رسوم السكن",
+            $"تم استلام دفعة رسوم طلب التسكين رقم {request.Id} بنجاح.",
+            JsonSerializer.Serialize(new { type = "housing_payment_completed", relatedId = request.Id }));
+
+        return new PayHousingRequestResultDto
+        {
+            Outcome = PaymentOutcome.Success,
+            NewBalance = charge.NewBalance,
+            Message = "تم الدفع بنجاح."
+        };
+    }
+
+    private static PayHousingRequestResultDto Fail(PaymentOutcome outcome, string message)
+        => new() { Outcome = outcome, Message = message };
 
     public async Task<bool?> DeleteAsync(int id, string performedBy, bool performedByAdmin)
     {
@@ -558,7 +652,10 @@ public class HousingRequestService : IHousingRequestService
                 ReviewedBy = request.AdmissionDecision.ReviewedBy
             },
             SubmittedAt = request.SubmittedAt,
-            LockedAt = request.LockedAt
+            LockedAt = request.LockedAt,
+            PaymentDueDate = request.PaymentDueDate,
+            IsPaid = request.IsPaid,
+            PaidAt = request.PaidAt
         };
     }
 }
