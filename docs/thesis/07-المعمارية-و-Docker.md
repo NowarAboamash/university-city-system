@@ -89,7 +89,8 @@
 | نشر إشعار | خدمة ← NotificationService (`/api/notifications/broadcast`) | `X-Service-Key` | متزامن، fail‑safe |
 | بحث أسماء المستخدمين | خدمة ← AuthService (`/api/internal/users/lookup`) | `X-Internal-Api-Key` | متزامن، fail‑safe، دفعات ≤ 200 |
 | رموز FCM | NotificationService ← AuthService (`/api/internal/users/fcm-tokens`) | `X-Internal-Api-Key` | متزامن |
-| شحن المحفظة | HousingService ← AuthService (`/api/internal/wallet/charge`) | `X-Internal-Api-Key` | متزامن، **ليس fail‑safe** (الطلب يبقى غير مدفوع عند الفشل) |
+| شحن المحفظة (دفع رسوم السكن) | HousingService ← AuthService (`/api/internal/wallet/charge`) | `X-Internal-Api-Key` | متزامن، **ليس fail‑safe** (الطلب يبقى غير مدفوع عند الفشل)، **مُحايِد للتكرار** على `(userId, reference)` |
+| تجميع لوحة الإدارة | Gateway ← HousingService + FeedbackService بالتوازي (`/api/dashboard`) | JWT مُمرَّر لكليهما | متزامن، scatter‑gather، دمج الردَّين في جسم واحد |
 
 ### 3.2 لماذا لا وسيط رسائل؟
 
@@ -98,7 +99,16 @@
 - **التكامل الوحيد «الثقيل» (الإشعارات) مصمَّم fail‑safe** فلا يحتاج ضمان تسليم عبر طابور.
 - **مقترح مستقبلي:** إدخال وسيط رسائل للأحداث (`RequestAccepted`، `AllocationCreated`) لفكّ الارتباط الزمني وتحسين المرونة (انظر §9).
 
-### 3.3 التعامل مع البيانات الموزّعة
+### 3.3 تجميع الاستجابات على البوابة — لوحة الإدارة (Scatter‑Gather)
+
+شاشة «النظرة العامة» في لوحة التحكم تحتاج بيانات من سياقين (السكن + الشكاوى). بدل نداءين من الواجهة، تُعرِّف البوابة **تجميعة Ocelot واحدة** (`GET /api/dashboard`، GET فقط):
+
+- **Scatter:** `MultiplexingMiddleware` تنادي `GET /api/housing-requests/dashboard` و`GET /api/feedbacks/dashboard` **بالتوازي**، وتُمرِّر ترويسة `Authorization` كما هي (كلٌّ يتحقّق من الرمز محليًا).
+- **Gather:** صنف `DashboardAggregator` مخصّص يدمج جسمَي JSON في **كائن مسطّح واحد** (مفاتيح الخدمتين لا تتقاطع). أيّ ردّ ≠ 200 (رمز ناقص/منتهٍ) يُمرَّر كما هو بدل جسم نصف مبني.
+- **قيد ترتيب:** البوابة تُنشر **بعد** الخدمتين الحاملتين لنقطتَي `/dashboard`، وإلا تعيد التجميعة تمرير `404`.
+- هذا **الموضع الوحيد** الذي تفعل فيه البوابة أكثر من توجيه مسار كما هو (انظر §4.1) — لا نمط عام للتجميع. تفصيل ومخطّط تسلسل في مستند البوابة (`05-gateway.md` §2.2).
+
+### 3.4 التعامل مع البيانات الموزّعة
 
 - **لا مفاتيح أجنبية عابرة للخدمات** — مستحيلة تقنيًا (قواعد بيانات منفصلة) وغير مرغوبة (اقتران).
 - **تكرار مقصود للبيانات (Data Duplication):** ما تحتاجه خدمة لقاعدة عمل صلبة تحفظه محليًا (`HousingRequest.Gender`)، لا تجلبه لحظيًا.
@@ -113,7 +123,7 @@
 
 - **Ocelot** (مكتبة .NET) — موجّه عكسي (Reverse Proxy) بلا حالة.
 - عنوان واحد للعميل (`:5067` محليًا / `gateway:8080` داخل Docker)؛ لا يعرف العميل منافذ الخدمات.
-- المسار يُمرَّر كما هو (`UpstreamPathTemplate == DownstreamPathTemplate`).
+- المسار يُمرَّر كما هو (`UpstreamPathTemplate == DownstreamPathTemplate`). **الاستثناء الوحيد:** تجميعة `GET /api/dashboard` التي تُركِّب استجابتَي خدمتين في جسم واحد (§3.3).
 - «اكتشاف الخدمات» ثابت (Static): عناوين الوجهات مكتوبة في ملف Ocelot لكل بيئة — لا يوجد Service Registry (Consul/Eureka).
 
 ### 4.2 المصادقة اللا‑مركزية
@@ -255,6 +265,8 @@ notificationservice:
 ```
 `INTERNAL_SERVICE_KEY` **نفس القيمة** على الخدمة المستدعِية والمُستدعاة (سرّ `X-Service-Key` المشترك).
 
+الخدمات التي تنادي AuthService داخليًا (HousingService وFeedbackService لبحث الأسماء، وHousingService إضافةً لشحن المحفظة عند الدفع) تحتاج أيضًا `AUTH_SERVICE_BASE_URL` و`AUTH_SERVICE_INTERNAL_API_KEY` (ترويسة `X-Internal-Api-Key`) — **مفتاح واحد** يخدم بحث الأسماء وشحن المحفظة معًا.
+
 **د) الشبكة والأحجام**
 ```yaml
 networks: { university-city: { driver: bridge } }
@@ -307,6 +319,25 @@ housingservice: يتحقّق JWT محليًا (RS256) → يرفع الوثائ�
 housingservice → Gateway → العميل : 201 Created + RequestId
 ```
 
+### 8.5 تسلسل دفع رسوم السكن (تكامل المحفظة — ليس fail‑safe)
+
+```
+العميل → Gateway:5067  POST /api/housing-requests/{id}/pay  (Bearer JWT: student)
+Gateway → housingservice:8080  (نفس المسار)
+housingservice: يتحقّق JWT محليًا → حرّاس: الطلب موجود، المستدعي مالكه،
+                غير مدفوع، قراره Accepted، HousingFeeAmount > 0
+              → POST AuthService /api/internal/wallet/charge  (X-Internal-Api-Key)
+                 { userId, amount, reference: "housing-request-{id}", description }
+                 مُحايِد للتكرار: نداء مُعاد بنفس المرجع يعيد 200 بالرصيد الأصلي بلا خصم ثانٍ
+   ┌── 200 { data.balance } ──► IsPaid = true, PaidAt = now (SaveChanges ذرّي)
+   │                          → INotificationPublisher: "تم دفع رسوم السكن"
+   ├── 402 ────────────────────► الطلب يبقى غير مدفوع → 402 "رصيدك لا يكفي"
+   └── 404/401/5xx ────────────► استثناء يُلتقط → 502، الطلب يبقى غير مدفوع
+housingservice → Gateway → العميل : 200 / 402 / 409 / 502
+```
+
+> خلاف نداء الإشعار (fail‑safe، يُبتلع الفشل)، نداء شحن المحفظة **يجب** أن يُبلِّغ المستدعي بدقّة بنتيجته — تحريك المال ليس تكاملًا اختياريًا. المرونة هنا عبر **حِياد التكرار** لا عبر «تجاهل الفشل».
+
 ---
 
 ## 9. بيئات النشر الثلاث
@@ -330,6 +361,8 @@ housingservice → Gateway → العميل : 201 Created + RequestId
 | `EnableRetryOnFailure(5, 10s)` + `CommandTimeout(60)` | `AddDbContext` في كل خدمة | تحمّل انقطاعات SQL Server العابرة (خصوصًا على استضافة مجانية) |
 | مهلة HttpClient 10 ثوانٍ | نداءات AuthService / NotificationService | منع تعليق الطلب عند تعطُّل الوجهة |
 | تصميم «لا يرمي استثناء» | `INotificationPublisher`، `IUserLookupService` | فشل التابع لا يُسقط العملية الأساسية |
+| حِياد التكرار (Idempotency) على `(userId, reference)` | نداء شحن المحفظة (الدفع) | نداء دفع مُعاد/متزامن بنفس المرجع لا يخصم مرّتين — مرونة بديلة عن قفل موزّع، لتكاملٍ لا يصحّ ابتلاع فشله |
+| تمرير الردّ ≠ 200 كما هو في التجميع | `DashboardAggregator` على البوابة | لوحة الإدارة لا تُخفي فشل جزء خلف جسم نصف مبني |
 | حلّ كسول لبيانات الاعتماد | Cloudinary، Firebase | الخدمة تُقلِع وتخدم نقاطها غير المعتمِدة قبل توفير المفاتيح |
 | `Database.MigrateAsync()` عند الإقلاع | `Program.cs` كل خدمة | مخطّط القاعدة دائمًا محدَّث مع الكود المنشور |
 | `healthcheck` + `depends_on` | compose | ترتيب إقلاع صحيح |
@@ -358,7 +391,8 @@ docker compose down -v             # إيقاف + حذف الأحجام (يمس�
 
 - فصل نظيف لخمسة سياقات مستقلّة، كل بقاعدة بياناته وترحيلاته وتوثيقه.
 - نقطة دخول موحّدة، ومصادقة موزّعة بلا اختناق مركزي.
-- تكامل بين الخدمات مقاوم للأعطال (fail‑safe) في المسارات غير الحرجة.
+- تكامل بين الخدمات مقاوم للأعطال (fail‑safe) في المسارات غير الحرجة، ومُحايِد للتكرار في المسار الحرِج الوحيد (الدفع).
+- تجميع استجابات عابر لسياقين على البوابة (`/api/dashboard`) دون إدخال اقتران بين الخدمتين.
 - بيئة تطوير/اختبار كاملة بأمر واحد عبر Docker Compose.
 - إمكانية النشر المستقل لكل خدمة.
 
@@ -369,6 +403,7 @@ docker compose down -v             # إيقاف + حذف الأحجام (يمس�
 | خادم SQL Server واحد لكل قواعد البيانات | «DB per service» منطقيًا لا فيزيائيًا؛ نقطة فشل بنيوية مشتركة في هذه الإعدادات. |
 | لا وسيط رسائل | التكاملات مقترنة زمنيًا؛ لا إعادة تسليم مضمونة للإشعارات. |
 | اكتشاف خدمات ثابت (ملفات Ocelot) | تغيير طوبولوجيا النشر يتطلّب تعديل ملف. |
+| تجميعة `/api/dashboard` تعتمد ترتيب نشر (الخدمتان قبل البوابة) وتدعم GET فقط | نقطة تجميع واحدة يدويّة؛ لا نمط عام قابل لإعادة الاستخدام. |
 | `SharedKernel` = اقتران وقت البناء | تعديلها يستلزم إعادة بناء كل الخدمات. |
 | لا تتبّع موزّع مركزي (Distributed Tracing) ولا تجميع لوجات | تصحيح سيناريو عابر لعدّة خدمات يدوي. |
 | لا CI/CD ولا تنسيق حاويات (K8s) | البناء والنشر يدويان. |
