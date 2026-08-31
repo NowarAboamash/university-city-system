@@ -24,10 +24,13 @@ Single global row, editable from the dashboard.
 {
   "paymentDeadlineDays": 15,   // > 0
   "reminderDaysBefore": 3,     // > 0 and < paymentDeadlineDays
-  "housingFeeAmount": 0,        // >= 0 ; must be > 0 before payments work
+  "housingFeeAmount": 0,        // >= 0, at most 2 decimals; must be > 0 before payments work
   "updatedAt": null            // response only
 }
 ```
+
+`housingFeeAmount` is in whole currency units (25 = 25 dinar). auth-service's wallet stores it
+as a plain JSON number, so it's capped at 2 decimal places.
 
 `PUT` validates the constraints above and returns `400` with a message on violation.
 `housingFeeAmount` is a single flat fee for every request (all rooms are one tier).
@@ -50,6 +53,10 @@ Charges `housingFeeAmount` from the student's auth-service wallet
 
 Paying is still allowed after `PaymentDueDate` has passed — the deadline only drives the
 reminder; freeing an unpaid spot is a separate manual admin action.
+
+Concurrent `/pay` calls for the same request are safe: auth-service is idempotent on
+`(userId, reference)`, so a duplicate charge with `housing-request-{id}` returns 200 with the
+original balance and moves no money.
 
 Config: reuses `AuthService:BaseUrl` + `AuthService:InternalApiKey`
 (`AUTH_SERVICE_BASE_URL` / `AUTH_SERVICE_INTERNAL_API_KEY`) — the same internal key already

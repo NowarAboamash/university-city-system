@@ -53,6 +53,20 @@ public class PaymentTests
             ctx.SettingsService.UpdateAsync(Settings(deadline, reminderBefore, fee)));
     }
 
+    [Fact]
+    public async Task UpdateSettings_FeeWithMoreThanTwoDecimals_Throws()
+    {
+        using var ctx = new TestContext();
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            ctx.SettingsService.UpdateAsync(new UpdateHousingSettingsDto
+            {
+                PaymentDeadlineDays = 15,
+                ReminderDaysBefore = 3,
+                HousingFeeAmount = 25.123m
+            }));
+    }
+
     // --- PaymentDueDate stamped on acceptance -------------------------------
 
     [Fact]

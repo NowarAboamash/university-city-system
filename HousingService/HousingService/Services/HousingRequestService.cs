@@ -467,8 +467,10 @@ public class HousingRequestService : IHousingRequestService
             return Fail(PaymentOutcome.GatewayError, "تعذّر إتمام الدفع حالياً. حاول لاحقاً.");
         }
 
-        // The IsPaid check above is the double-charge guard; a very tight race between two
-        // concurrent calls could still double-charge before this save lands — acceptable for now.
+        // Safe against concurrent /pay calls for the same request: auth-service is idempotent
+        // on (userId, reference) — a duplicate charge with reference "housing-request-{id}"
+        // returns 200 with the original balance and moves no money — so the worst a race does
+        // here is a redundant "IsPaid = true" write.
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         request.IsPaid = true;
         request.PaidAt = now;

@@ -43,6 +43,13 @@ public class HousingSettingsService : IHousingSettingsService
             throw new ArgumentException("HousingFeeAmount cannot be negative.");
         }
 
+        // auth-service's wallet stores the amount as a plain JSON number (not Decimal128),
+        // so keep it to at most 2 decimal places to avoid accumulated floating-point drift.
+        if (decimal.Round(dto.HousingFeeAmount, 2) != dto.HousingFeeAmount)
+        {
+            throw new ArgumentException("HousingFeeAmount cannot have more than 2 decimal places.");
+        }
+
         var settings = await _settingsRepository.GetAsync();
         settings.PaymentDeadlineDays = dto.PaymentDeadlineDays;
         settings.ReminderDaysBefore = dto.ReminderDaysBefore;
