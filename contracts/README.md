@@ -37,6 +37,10 @@ If either downstream returns a non-200 (e.g. token missing/expired), that respon
 straight through instead of a half-built body. Aggregation is GET-only (Ocelot
 `Aggregates` + a custom `DashboardAggregator`).
 
+**Frontend hand-off:** `frontend-dashboard-and-payment.md` in this folder has the full
+response shapes, enum mappings, and the housing-fee payment / settings endpoints, written for
+the dashboard and student-payment UI work.
+
 ### Images are Cloudinary URLs, not local paths
 
 `FeedbackImageDto.imagePath` and `AdvertisementDto.imageUrl` are now full, absolute Cloudinary URLs (e.g. `https://res.cloudinary.com/<cloud>/image/upload/v.../feedback/xyz.png`), publicly fetchable directly — **do not** prefix them with the Gateway or service origin, and don't route them through `/api/...`. Both services used to store images on local disk and serve them via `/uploads/...` or a local proxy endpoint; that's gone (the old `/api/advertisementimages/advertisements/{fileName}` endpoint was removed). This also means images now work correctly across independently-hosted services — no gateway routing needed for them at all.
