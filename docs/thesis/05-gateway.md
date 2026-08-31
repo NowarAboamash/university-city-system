@@ -52,14 +52,32 @@ Ocelot يطابق `UpstreamPathTemplate` (ما يطلبه العميل) ويعي
 | `/api/housing-requests` و `/api/housing-requests/{everything}` | HousingService | 5054 | GET, POST, PUT, DELETE |
 | `/api/housing-groups` و `/api/housing-groups/{everything}` | HousingService | 5054 | GET, POST |
 | `/api/allocations` و `/api/allocations/{everything}` | HousingService | 5054 | GET, POST |
+| `/api/dashboard/housing` | HousingService (`/api/housing-requests/dashboard`) | 5054 | GET |
+| `/api/dashboard/feedback` | FeedbackService (`/api/feedbacks/dashboard`) | 5069 | GET |
 | `/api/auth/{everything}` | **AuthService** (خارجية) | `university-auth-lemon.vercel.app:443` (HTTPS) | GET, POST, PATCH |
 | `/api/admin/{everything}` | **AuthService** (خارجية) | نفسه | GET, POST, PATCH, DELETE |
+
+> `/api/dashboard/housing` و `/api/dashboard/feedback` مساران **مُفتاحَان** (`Key`) يُستخدمان مكوّنَين للتجميعة أدناه، ويصلحان أيضًا لاستدعاء نصف اللوحة وحده.
 
 ### 2.1 ملاحظات مهمّة
 
 - **AuthService تُوجَّه أيضًا عبر البوابة** (`/api/auth/*` و `/api/admin/*`) إلى نسخة Vercel المنشورة، في كل ملفات Ocelot الثلاثة (لا نسخة محلية/Docker نتحكّم بها).
 - **`/api/internal/*` لا تُوجَّه عبر البوابة عمدًا** — نقاط خادم‑لخادم (بحث المستخدمين، رموز FCM، شحن المحفظة) محميّة بمفتاح داخلي لا برمز مستخدم؛ خدماتنا تستدعيها مباشرةً بعنوان AuthService لا عبر البوابة. تقليل سطح الهجوم بلا فائدة تُذكر من كشفها علنًا.
 - البوابة لا تُعدّل المسار: العميل يستخدم نفس مسارات مواصفات OpenAPI بالضبط.
+
+### 2.2 تجميع لوحة الإدارة (`GET /api/dashboard`)
+
+شاشة النظرة العامة في لوحة التحكم تجمع بيانات من خدمتين (السكن + الشكاوى). بدل نداءين من الواجهة، تُعرِّف البوابة **تجميعة Ocelot** واحدة:
+
+| العنصر | القيمة |
+|---|---|
+| المسار العلوي | `GET /api/dashboard` (GET فقط — التجميع في Ocelot لا يدعم غيره) |
+| المكوّنات | `RouteKeys = [ housing-dashboard, feedback-dashboard ]` |
+| المُجمِّع | `DashboardAggregator` (صنف مخصّص يُسجَّل بـ `AddSingletonDefinedAggregator`) |
+
+- **السلوك:** البوابة تنادي المسارين الخلفيين بالتوازي وتُمرِّر ترويسة `Authorization` كما هي لكليهما (كلاهما يتطلّب رمز `admin`/`super_admin` ويتحقّق منه محليًا). ثم `DashboardAggregator` **يدمج جسمَي JSON في كائن مسطّح واحد** — مفاتيحهما لا تتقاطع (`pendingRequests`، `occupancyRate`، … من السكن؛ `openComplaints`، `recentFeedback`، … من الشكاوى).
+- **معالجة الخطأ:** إن ردّت إحدى الخدمتين بغير `200` (رمز ناقص/منتهٍ مثلًا) يُمرَّر ردّها كما هو بدل جسم نصف مبني.
+- مُعرَّف في ملفات Ocelot الثلاثة (محلي/Docker/إنتاج) بعناوين البيئة المناسبة. **ترتيب النشر:** تُنشر HousingService وFeedbackService بالكود الجديد **قبل** البوابة، وإلا يعيد `/api/dashboard` تمرير `404`.
 
 ---
 
@@ -84,6 +102,7 @@ Ocelot يطابق `UpstreamPathTemplate` (ما يطلبه العميل) ويعي
 |---|---|
 | بوابة توجيه بلا منطق عمل ولا مصادقة | فصل المسؤوليات؛ كل خدمة تتحقّق من JWT محليًا (RS256) بلا نداء مركزي لكل طلب — لا نقطة فشل وحيدة للمصادقة. |
 | نمط `{everything}` العام مع تقييد الأفعال | إضافة نقاط نهاية جديدة في الخدمة الخلفية لا تتطلّب غالبًا تعديل Ocelot، مع الحفاظ على قصر الأفعال المسموحة لكل مورد. |
+| تجميع لوحة الإدارة في البوابة لا في خدمة جديدة | نداء واحد للواجهة عبر حدود خدمتين، دون إدخال اقتران بين HousingService وFeedbackService (كلٌّ يجهل الآخر)؛ البوابة هي المكان الطبيعي لتجميع الاستجابات. |
 | توجيه AuthService عبر البوابة أيضًا | عنوان موحّد للعميل حتى للمصادقة؛ لكن مع استثناء `/api/internal/*` صراحةً. |
 | ملف Ocelot لكل بيئة | عناوين الخدمات الخلفية تختلف بين المحلي (localhost:منفذ) وDocker (اسم الحاوية:8080) والإنتاج. |
 | Swagger مُجمَّع | فريقا لوحة التحكم وتطبيق الجوال يجدان عقود كل الخدمات في مكان واحد لتوليد عملاء HTTP مُنمَّطين. |
@@ -93,6 +112,6 @@ Ocelot يطابق `UpstreamPathTemplate` (ما يطلبه العميل) ويعي
 ## 6. القيود والأعمال المستقبلية
 
 - لا تحديد معدّل (Rate Limiting) ولا قاطع دارة (Circuit Breaker) مفعّل حاليًا (Ocelot يدعمهما لكنهما غير مُعدَّين).
-- لا تجميع استجابات (Response Aggregation).
+- تجميع الاستجابات مُستخدَم في موضع واحد فقط (`GET /api/dashboard`)؛ لا نمط عام للتجميع.
 - لا تسجيل مركزي/تتبّع موزّع (Distributed Tracing) على مستوى البوابة.
 - سياسة CORS `AllowAll` مناسبة للتطوير؛ يُفترض تضييقها في الإنتاج.

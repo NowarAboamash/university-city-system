@@ -79,6 +79,7 @@ Feedback 1───∞ FeedbackImage        (FK = FeedbackId، OnDelete = Cascad
 | BR‑F13 | في `GET /api/feedbacks` يُملأ `studentName` و`repliedByAdminName` من AuthService عبر **نداء دفعي واحد لكل صفحة** (كل المعرّفات الفريدة)، لا نداء لكل عنصر. |
 | BR‑F14 | `studentName` يبقى `null` للشكاوى مجهولة الهوية حتى لو كان `studentId` معروفًا داخليًا — الإخفاء يُطبَّق وقت العرض. |
 | BR‑F15 | فشل AuthService لا يُسقط الطلب — تعود الأسماء `null` فقط (تصميم «لا يرمي استثناء»). |
+| BR‑F16 | `GET /api/feedbacks/dashboard` **للإداري فقط** (`403` لغيره): يُعيد في حمولة واحدة عدّ الشكاوى المفتوحة (`Type = Complaint` و`RepliedAt == null`)، عدّ غير المقروء، إجمالي الشكاوى وإجمالي المقترحات، وأحدث 5 عناصر (شكاوى ومقترحات معًا) مع اسم صاحبها — ويبقى الاسم `null` للمجهولة (نفس قاعدة BR‑F14). قراءة تجميعية بحتة، لا كتابة. |
 
 ---
 
@@ -116,6 +117,12 @@ Feedback 1───∞ FeedbackImage        (FK = FeedbackId، OnDelete = Cascad
 - `POST /api/feedbackimages/upload` — رفع صورة لشكوى قائمة.
 - `DELETE /api/feedbackimages/{id}` أو `/by-path?fileNameOrPath=` — حذف صورة (إداري فقط).
 
+### UC‑08 بطاقات الشكاوى في لوحة الإدارة
+- **الفاعل:** الإداري.
+- **المسار:** `GET /api/feedbacks/dashboard` ← استعلامات عدّ (شكاوى مفتوحة، غير مقروء، إجماليات) + جلب أحدث 5 عناصر + نداء أسماء دفعي واحد لغير المجهولة منها.
+- **الخرج:** حمولة تغذّي بطاقتَي «شكاوى مفتوحة» و«أحدث الشكاوى» في شاشة النظرة العامة.
+- **ملاحظة تكامل:** تُدمَج هذه الحمولة مع نظير HousingService في البوابة عبر `GET /api/dashboard` المُجمَّع (انظر مستند البوابة).
+
 ---
 
 ## 5. مرجع نقاط النهاية (API)
@@ -124,6 +131,7 @@ Feedback 1───∞ FeedbackImage        (FK = FeedbackId، OnDelete = Cascad
 |---|---|---|
 | `GET /api/feedbacks` | Any | قائمة مُصفَّحة (طالب: شكاواه؛ إداري: الكل + الأسماء) |
 | `GET /api/feedbacks/mine` | Any | شكاوى المستدعي، مُصفَّحة |
+| `GET /api/feedbacks/dashboard` | A | بطاقات الشكاوى للوحة الإدارة (حمولة تجميعية واحدة) |
 | `GET /api/feedbacks/{id}` | Any (بملكيّة) | تفصيل شكوى (يقلب `IsRead` للإداري فقط) |
 | `POST /api/feedbacks` | Any | إنشاء شكوى/مقترح |
 | `POST /api/feedbacks/with-images` | Any | إنشاء مع صور (معاملة) |
