@@ -39,4 +39,17 @@ public class BuildingServiceTests
         Assert.True(updated);
         Assert.Equal(BuildingStatus.Inactive, ctx.Db.Buildings.Single(b => b.Id == building.Id).Status);
     }
+
+    [Fact]
+    public async Task GetLookupAsync_ExposesIdNameAndFloorsCountOnly()
+    {
+        using var ctx = new TestContext();
+        ctx.AddBuilding(1000, Gender.Female, capacity: 4, floorsCount: 6);
+
+        var lookup = await ctx.BuildingService.GetLookupAsync();
+
+        var b = Assert.Single(lookup, x => x.Id == 1000);
+        Assert.Equal("TestBuilding1000", b.Name);
+        Assert.Equal(6, b.FloorsCount);
+    }
 }

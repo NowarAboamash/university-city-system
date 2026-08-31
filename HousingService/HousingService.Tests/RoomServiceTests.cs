@@ -45,4 +45,29 @@ public class RoomServiceTests
         Assert.True(result);
         Assert.Equal(RoomStatus.Maintenance, ctx.Db.Rooms.Single(r => r.Id == room.Id).Status);
     }
+
+    [Fact]
+    public async Task GetLookupByBuildingAsync_ReturnsMinimalRoomsOrderedByFloorThenNumber()
+    {
+        using var ctx = new TestContext();
+        var building = ctx.AddBuilding(1000, Gender.Female, capacity: 4);
+        ctx.AddRoom(1002, building.Id, "205", floor: 2);
+        ctx.AddRoom(1001, building.Id, "104", floor: 1);
+        ctx.AddRoom(1003, building.Id, "201", floor: 2, status: RoomStatus.Maintenance);
+
+        var lookup = await ctx.RoomService.GetLookupByBuildingAsync(building.Id);
+
+        Assert.NotNull(lookup);
+        Assert.Equal(new[] { "104", "201", "205" }, lookup!.Select(r => r.RoomNumber));
+        Assert.Equal(new[] { 1, 2, 2 }, lookup.Select(r => r.Floor));
+        // RoomLookupDto exposes only id/floor/roomNumber — no status, no occupant ids
+    }
+
+    [Fact]
+    public async Task GetLookupByBuildingAsync_UnknownBuilding_ReturnsNull()
+    {
+        using var ctx = new TestContext();
+        var lookup = await ctx.RoomService.GetLookupByBuildingAsync(999999);
+        Assert.Null(lookup);
+    }
 }

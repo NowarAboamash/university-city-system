@@ -91,7 +91,7 @@ public class BuildingService : IBuildingService
     {
         var buildings = await _buildingRepository.GetAllAsync();
         return buildings
-            .Select(b => new BuildingLookupDto { Id = b.Id, Name = b.Name })
+            .Select(b => new BuildingLookupDto { Id = b.Id, Name = b.Name, FloorsCount = b.FloorsCount })
             .ToList();
     }
 

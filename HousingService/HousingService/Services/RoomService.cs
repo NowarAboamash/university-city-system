@@ -66,6 +66,22 @@ public class RoomService : IRoomService
         return rooms.Select(r => MapToDto(r, building.StandardRoomCapacity, GetOccupantStudentIds(r))).ToList();
     }
 
+    public async Task<IReadOnlyList<RoomLookupDto>?> GetLookupByBuildingAsync(int buildingId)
+    {
+        var building = await _buildingRepository.GetByIdAsync(buildingId);
+        if (building is null)
+        {
+            return null;
+        }
+
+        var rooms = await _roomRepository.GetByBuildingIdAsync(buildingId);
+        return rooms
+            .OrderBy(r => r.Floor)
+            .ThenBy(r => r.RoomNumber)
+            .Select(r => new RoomLookupDto { Id = r.Id, Floor = r.Floor, RoomNumber = r.RoomNumber })
+            .ToList();
+    }
+
     public async Task<RoomDto?> GetByIdAsync(int buildingId, int id)
     {
         var room = await _roomRepository.GetByIdWithOccupantsAsync(id);

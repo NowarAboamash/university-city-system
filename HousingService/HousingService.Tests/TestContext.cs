@@ -91,7 +91,7 @@ public sealed class TestContext : IDisposable
     // Use high ids (>= 1000) to stay clear of HousingDbContext's own HasData seed
     // (20 buildings / 5280 rooms with ids 1..~5280) that always applies regardless of provider.
 
-    public Building AddBuilding(int id, Gender gender, int capacity = 4, BuildingStatus status = BuildingStatus.Active)
+    public Building AddBuilding(int id, Gender gender, int capacity = 4, BuildingStatus status = BuildingStatus.Active, int? floorsCount = null)
     {
         var building = new Building
         {
@@ -100,6 +100,7 @@ public sealed class TestContext : IDisposable
             Gender = gender,
             Status = status,
             StandardRoomCapacity = capacity,
+            FloorsCount = floorsCount,
             CreatedAt = Clock.GetUtcNow().UtcDateTime
         };
         Db.Buildings.Add(building);
@@ -111,14 +112,14 @@ public sealed class TestContext : IDisposable
     // occupies (20 buildings * 6 floors * 44 rooms) — that seed applies regardless of provider.
     private const int RoomIdOffset = 100_000;
 
-    public Room AddRoom(int id, int buildingId, string roomNumber = "101", RoomStatus status = RoomStatus.Available)
+    public Room AddRoom(int id, int buildingId, string roomNumber = "101", RoomStatus status = RoomStatus.Available, int floor = 1)
     {
         var room = new Room
         {
             Id = id + RoomIdOffset,
             BuildingId = buildingId,
             RoomNumber = roomNumber,
-            Floor = 1,
+            Floor = floor,
             Status = status,
             CreatedAt = Clock.GetUtcNow().UtcDateTime
         };

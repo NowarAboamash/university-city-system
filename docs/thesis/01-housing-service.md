@@ -330,7 +330,8 @@ HousingSettings: سطر مفرد مستقل (Id = 1)
 |---|---|---|
 | `POST /api/buildings` | A | إنشاء مبنى |
 | `GET /api/buildings` | A | قائمة كل المباني (تفصيلية) |
-| `GET /api/buildings/lookup` | Any | قائمة `{Id, Name}` مختصرة (لاختيار المبنى السابق) |
+| `GET /api/buildings/lookup` | Any | قائمة `{Id, Name, FloorsCount}` مختصرة (لاختيار المبنى/الطابق السابق) |
+| `GET /api/buildings/{buildingId}/rooms/lookup` | Any | قائمة `{Id, Floor, RoomNumber}` مختصرة (لاختيار الغرفة السابقة؛ بلا حالة/شاغلين) |
 | `GET /api/buildings/{id}` | A | تفاصيل مبنى |
 | `PUT /api/buildings/{id}` | A | تعديل مبنى (بحارس الإخلاء) |
 | `POST /api/buildings/{id}/evacuation/announce` | A | إعلان إخلاء (إشعار فقط) |

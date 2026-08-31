@@ -7,7 +7,7 @@ namespace HousingService.Controllers;
 
 [ApiController]
 [Route("api/buildings/{buildingId:int}/rooms")]
-[Authorize(Roles = AdminRoles)]
+[Authorize]
 public class RoomsController : ControllerBase
 {
     private const string AdminRoles = "admin,super_admin";
@@ -19,6 +19,17 @@ public class RoomsController : ControllerBase
         _roomService = roomService;
     }
 
+    // Minimal id/floor/roomNumber list any authenticated role can read — so a student's app
+    // can offer a floor/room picker for the "previous residence" fields on a housing request,
+    // without exposing status or occupant ids (the admin GET below keeps those).
+    [HttpGet("lookup")]
+    public async Task<ActionResult<IReadOnlyList<RoomLookupDto>>> GetLookup(int buildingId)
+    {
+        var rooms = await _roomService.GetLookupByBuildingAsync(buildingId);
+        return rooms is null ? NotFound($"Building {buildingId} was not found.") : Ok(rooms);
+    }
+
+    [Authorize(Roles = AdminRoles)]
     [HttpPost]
     public async Task<ActionResult<RoomDto>> Create(int buildingId, CreateRoomDto dto)
     {
@@ -38,6 +49,7 @@ public class RoomsController : ControllerBase
         }
     }
 
+    [Authorize(Roles = AdminRoles)]
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<RoomDto>>> GetByBuilding(int buildingId)
     {
@@ -45,6 +57,7 @@ public class RoomsController : ControllerBase
         return rooms is null ? NotFound($"Building {buildingId} was not found.") : Ok(rooms);
     }
 
+    [Authorize(Roles = AdminRoles)]
     [HttpGet("{id:int}")]
     public async Task<ActionResult<RoomDto>> GetById(int buildingId, int id)
     {
@@ -52,6 +65,7 @@ public class RoomsController : ControllerBase
         return room is null ? NotFound() : Ok(room);
     }
 
+    [Authorize(Roles = AdminRoles)]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int buildingId, int id, UpdateRoomDto dto)
     {

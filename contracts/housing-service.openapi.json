@@ -2421,6 +2421,55 @@
         }
       }
     },
+    "/api/buildings/{buildingId}/rooms/lookup": {
+      "get": {
+        "tags": [
+          "Rooms"
+        ],
+        "parameters": [
+          {
+            "name": "buildingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoomLookupDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoomLookupDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoomLookupDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/buildings/{buildingId}/rooms": {
       "post": {
         "tags": [
@@ -2821,6 +2870,11 @@
           },
           "name": {
             "type": "string",
+            "nullable": true
+          },
+          "floorsCount": {
+            "type": "integer",
+            "format": "int32",
             "nullable": true
           }
         },
@@ -3625,6 +3679,24 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RoomLookupDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "floor": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "roomNumber": {
+            "type": "string",
             "nullable": true
           }
         },
