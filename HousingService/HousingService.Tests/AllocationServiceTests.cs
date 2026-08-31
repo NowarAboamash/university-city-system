@@ -382,4 +382,58 @@ public class AllocationServiceTests
         var result = await ctx.AllocationService.TransferStudentAsync("nobody", new TransferAllocationDto { NewRoomId = room.Id });
         Assert.Null(result);
     }
+
+    // --- GetCandidateRoomsAsync: must also serve already-housed targets (transfer scenario) ---
+
+    [Fact]
+    public async Task GetCandidateRoomsAsync_IndividualAlreadyHoused_ReturnsRoomsExcludingCurrent()
+    {
+        using var ctx = new TestContext();
+        var building = ctx.AddBuilding(1000, Gender.Female, capacity: 4);
+        var oldRoom = ctx.AddRoom(1000, building.Id, "T101");
+        var newRoom = ctx.AddRoom(1001, building.Id, "T102");
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var request = ctx.AddRequest(1000, "student-1", cycle.Id, gov.Id, Gender.Female, decisionStatus: AdmissionDecisionStatus.Accepted);
+        ctx.AddAllocation(1000, oldRoom.Id, housingRequestId: request.Id);
+
+        var rooms = await ctx.AllocationService.GetCandidateRoomsAsync(request.Id, null);
+
+        Assert.Contains(rooms, r => r.RoomId == newRoom.Id);
+        Assert.DoesNotContain(rooms, r => r.RoomId == oldRoom.Id);
+    }
+
+    [Fact]
+    public async Task GetCandidateRoomsAsync_GroupAlreadyHoused_ReturnsRoomsExcludingCurrent()
+    {
+        using var ctx = new TestContext();
+        var building = ctx.AddBuilding(1000, Gender.Female, capacity: 4);
+        var oldRoom = ctx.AddRoom(1000, building.Id, "T101");
+        var newRoom = ctx.AddRoom(1001, building.Id, "T102");
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var group = ctx.AddGroup(1000, "leader", cycle.Id, HousingGroupStatus.Allocated);
+        ctx.AddRequest(1000, "leader", cycle.Id, gov.Id, Gender.Female, housingGroupId: group.Id, decisionStatus: AdmissionDecisionStatus.Accepted);
+        ctx.AddRequest(1001, "member-2", cycle.Id, gov.Id, Gender.Female, housingGroupId: group.Id, decisionStatus: AdmissionDecisionStatus.Accepted);
+        ctx.AddAllocation(1000, oldRoom.Id, housingGroupId: group.Id);
+
+        var rooms = await ctx.AllocationService.GetCandidateRoomsAsync(null, group.Id);
+
+        Assert.Contains(rooms, r => r.RoomId == newRoom.Id);
+        Assert.DoesNotContain(rooms, r => r.RoomId == oldRoom.Id);
+        Assert.All(rooms, r => Assert.True(r.RemainingCapacity >= 2)); // must fit the whole group
+    }
+
+    [Fact]
+    public async Task GetCandidateRoomsAsync_NotAcceptedTarget_StillThrows()
+    {
+        using var ctx = new TestContext();
+        ctx.AddBuilding(1000, Gender.Female);
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var request = ctx.AddRequest(1000, "student-1", cycle.Id, gov.Id, Gender.Female); // no decision
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            ctx.AllocationService.GetCandidateRoomsAsync(request.Id, null));
+    }
 }

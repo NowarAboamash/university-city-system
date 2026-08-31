@@ -203,6 +203,8 @@ Both the old room (one fewer occupant, group's allocation unaffected otherwise) 
 
 A natural admin UI pattern: on a **student's** profile screen, a "Remove from housing" button calls `/students/{studentId}/vacate`, and a "Move to another room" button (opening a room picker, sourced from `GET /api/allocations/candidate-rooms?housingRequestId=` for an individual or `?housingGroupId=` for a group) calls `/students/{studentId}/transfer` — you never need to look up an allocation id first. On a **room's** detail screen instead (list of `occupantStudentIds`), the `{id}`-based endpoints are more natural since you already have the allocation loaded.
 
+`candidate-rooms` works whether the target is unhoused (first allocation) or **already housed** (preparing a transfer) — in the housed case the target's current room is left out of the list. It only 400s when the target doesn't exist, isn't `Accepted`, or is an individual request that belongs to a group (query by `housingGroupId` for grouped students).
+
 ## Notifications
 
 Every one of these actions pushes an in-app notification to the affected student(s) automatically (server-side, via NotificationService) — no separate call needed from the frontend to inform the student. If you have a notifications inbox screen, it reads from NotificationService's own `GET /api/notifications/mine`, independent of these calls.

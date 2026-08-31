@@ -40,11 +40,21 @@ public class AllocationService : IAllocationService
 
     public async Task<IReadOnlyList<CandidateRoomDto>> GetCandidateRoomsAsync(int? housingRequestId, int? housingGroupId)
     {
-        var (studentGender, neededCapacity, _, _) = await ResolveTargetAsync(housingRequestId, housingGroupId);
+        // allowExistingAllocation: this list also feeds "transfer", where the target is already
+        // housed. The transfer commit itself still revalidates every rule.
+        var (studentGender, neededCapacity, _, _) = await ResolveTargetAsync(housingRequestId, housingGroupId, allowExistingAllocation: true);
+
+        // If the target is already housed, drop their current room from the candidate list —
+        // transferring to the same room is a no-op the commit would reject anyway.
+        var currentAllocation = housingRequestId is not null
+            ? await _allocationRepository.GetByHousingRequestIdAsync(housingRequestId.Value)
+            : await _allocationRepository.GetByGroupIdAsync(housingGroupId!.Value);
+        var currentRoomId = currentAllocation?.RoomId;
 
         var rooms = await _roomRepository.GetAllWithOccupantsAsync();
 
         return rooms
+            .Where(r => currentRoomId is null || r.Id != currentRoomId.Value)
             .Where(r => IsGenderMatch(r.Building.Gender, studentGender))
             .Where(r => r.Status is RoomStatus.Available or RoomStatus.Occupied)
             .Select(r => new { Room = r, Remaining = r.Building.StandardRoomCapacity - GetCurrentOccupancy(r) })
@@ -484,7 +494,12 @@ public class AllocationService : IAllocationService
         return allocation is null ? null : MapToDto(allocation, allocation.Room, GetOccupantIds(allocation));
     }
 
-    private async Task<(Gender StudentGender, int NeededCapacity, HousingRequest? Request, HousingGroup? Group)> ResolveTargetAsync(int? housingRequestId, int? housingGroupId)
+    /// <param name="allowExistingAllocation">
+    /// When true, an already-housed target is not rejected. Used by the candidate-rooms listing
+    /// so an admin can pull a valid room list for a <c>transfer</c>; the actual allocation
+    /// commit (<see cref="CreateAsync"/>) still forbids a second allocation.
+    /// </param>
+    private async Task<(Gender StudentGender, int NeededCapacity, HousingRequest? Request, HousingGroup? Group)> ResolveTargetAsync(int? housingRequestId, int? housingGroupId, bool allowExistingAllocation = false)
     {
         if (housingRequestId is null == housingGroupId is null)
         {
@@ -509,10 +524,13 @@ public class AllocationService : IAllocationService
                 throw new ArgumentException("This request has not been accepted.");
             }
 
-            var existingAllocation = await _allocationRepository.GetByHousingRequestIdAsync(request.Id);
-            if (existingAllocation is not null)
+            if (!allowExistingAllocation)
             {
-                throw new ArgumentException("This request already has an allocation.");
+                var existingAllocation = await _allocationRepository.GetByHousingRequestIdAsync(request.Id);
+                if (existingAllocation is not null)
+                {
+                    throw new ArgumentException("This request already has an allocation.");
+                }
             }
 
             return (request.Gender, 1, request, null);
@@ -524,7 +542,7 @@ public class AllocationService : IAllocationService
             throw new ArgumentException("Housing group was not found.");
         }
 
-        if (group.Allocation is not null)
+        if (!allowExistingAllocation && group.Allocation is not null)
         {
             throw new ArgumentException("This group already has an allocation.");
         }
