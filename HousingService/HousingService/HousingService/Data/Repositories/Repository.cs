@@ -188,28 +188,78 @@ public class HousingRequestRepository : Repository<HousingRequest>, IHousingRequ
             .FirstOrDefaultAsync(h => h.Id == id);
     }
 
-    public async Task<(IEnumerable<HousingRequest> Items, int TotalCount)> GetAllWithFiltersAsync(int? housingCycleId, int? governorateId, HousingRequestStatus? status, AdmissionDecisionStatus? admissionStatus, PaginationParams pagination)
+    public async Task<(IEnumerable<HousingRequest> Items, int TotalCount)> GetAllWithFiltersAsync(HousingRequestFilterParams filter, PaginationParams pagination)
     {
         var query = _dbSet.Include(h => h.Documents).Include(h => h.AdmissionDecision).AsQueryable();
 
-        if (housingCycleId.HasValue)
+        if (filter.HousingCycleId.HasValue)
         {
-            query = query.Where(h => h.HousingCycleId == housingCycleId.Value);
+            query = query.Where(h => h.HousingCycleId == filter.HousingCycleId.Value);
         }
 
-        if (governorateId.HasValue)
+        if (filter.GovernorateId.HasValue)
         {
-            query = query.Where(h => h.GovernorateId == governorateId.Value);
+            query = query.Where(h => h.GovernorateId == filter.GovernorateId.Value);
         }
 
-        if (status.HasValue)
+        if (filter.Status.HasValue)
         {
-            query = query.Where(h => h.Status == status.Value);
+            query = query.Where(h => h.Status == filter.Status.Value);
         }
 
-        if (admissionStatus.HasValue)
+        if (filter.AdmissionStatus.HasValue)
         {
-            query = query.Where(h => h.AdmissionDecision != null && h.AdmissionDecision.Status == admissionStatus.Value);
+            query = query.Where(h => h.AdmissionDecision != null && h.AdmissionDecision.Status == filter.AdmissionStatus.Value);
+        }
+
+        if (filter.StudentIds is { Count: > 0 })
+        {
+            var studentIds = filter.StudentIds;
+            query = query.Where(h => studentIds.Contains(h.StudentId));
+        }
+
+        if (filter.AcademicLevel.HasValue)
+        {
+            query = query.Where(h => h.AcademicLevel == filter.AcademicLevel.Value);
+        }
+
+        if (filter.Gender.HasValue)
+        {
+            query = query.Where(h => h.Gender == filter.Gender.Value);
+        }
+
+        if (filter.IsPaid.HasValue)
+        {
+            query = query.Where(h => h.IsPaid == filter.IsPaid.Value);
+        }
+
+        if (filter.HasSpecialNeeds.HasValue)
+        {
+            query = query.Where(h => h.HasSpecialNeeds == filter.HasSpecialNeeds.Value);
+        }
+
+        if (filter.IsPreviousResident.HasValue)
+        {
+            query = query.Where(h => h.IsPreviousResident == filter.IsPreviousResident.Value);
+        }
+
+        if (filter.IsGrouped == true)
+        {
+            query = query.Where(h => h.HousingGroupId != null);
+        }
+        else if (filter.IsGrouped == false)
+        {
+            query = query.Where(h => h.HousingGroupId == null);
+        }
+
+        if (filter.SubmittedFrom.HasValue)
+        {
+            query = query.Where(h => h.SubmittedAt >= filter.SubmittedFrom.Value);
+        }
+
+        if (filter.SubmittedTo.HasValue)
+        {
+            query = query.Where(h => h.SubmittedAt <= filter.SubmittedTo.Value);
         }
 
         query = query.OrderByDescending(h => h.SubmittedAt);

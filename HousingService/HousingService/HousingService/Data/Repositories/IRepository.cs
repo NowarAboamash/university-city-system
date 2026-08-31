@@ -45,7 +45,7 @@ public interface IHousingRequestRepository : IRepository<HousingRequest>
     Task<IEnumerable<HousingRequest>> GetByStatusAsync(HousingRequestStatus status);
     Task<IEnumerable<HousingRequest>> GetByGroupIdAsync(int groupId);
     Task<HousingRequest?> GetByIdWithDocumentsAsync(int id);
-    Task<(IEnumerable<HousingRequest> Items, int TotalCount)> GetAllWithFiltersAsync(int? housingCycleId, int? governorateId, HousingRequestStatus? status, AdmissionDecisionStatus? admissionStatus, PaginationParams pagination);
+    Task<(IEnumerable<HousingRequest> Items, int TotalCount)> GetAllWithFiltersAsync(HousingRequestFilterParams filter, PaginationParams pagination);
     /// <summary>Accepted, unpaid requests whose payment reminder hasn't been sent yet and whose
     /// due date falls before <paramref name="dueDateCutoffExclusive"/>.</summary>
     Task<IEnumerable<HousingRequest>> GetDueForPaymentReminderAsync(DateTime dueDateCutoffExclusive);

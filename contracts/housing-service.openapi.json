@@ -1751,7 +1751,7 @@
         ],
         "parameters": [
           {
-            "name": "housingCycleId",
+            "name": "HousingCycleId",
             "in": "query",
             "schema": {
               "type": "integer",
@@ -1759,7 +1759,7 @@
             }
           },
           {
-            "name": "governorateId",
+            "name": "GovernorateId",
             "in": "query",
             "schema": {
               "type": "integer",
@@ -1767,17 +1767,85 @@
             }
           },
           {
-            "name": "status",
+            "name": "Status",
             "in": "query",
             "schema": {
               "$ref": "#/components/schemas/HousingRequestStatus"
             }
           },
           {
-            "name": "admissionStatus",
+            "name": "AdmissionStatus",
             "in": "query",
             "schema": {
               "$ref": "#/components/schemas/AdmissionDecisionStatus"
+            }
+          },
+          {
+            "name": "StudentIds",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "AcademicLevel",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AcademicLevel"
+            }
+          },
+          {
+            "name": "Gender",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Gender"
+            }
+          },
+          {
+            "name": "IsPaid",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "HasSpecialNeeds",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "IsPreviousResident",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "IsGrouped",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "SubmittedFrom",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "SubmittedTo",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
             }
           },
           {

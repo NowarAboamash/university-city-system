@@ -357,7 +357,7 @@ HousingSettings: سطر مفرد مستقل (Id = 1)
 | `GET /api/housing-requests/mine` \| `/mine/{id}` | S | طلبات الطالب / تفصيل |
 | `PUT /api/housing-requests/mine/{id}` | S | تصحيح الطلب |
 | `DELETE /api/housing-requests/{id}` | S/A | حذف الطلب (الطالب لطلبه، الإداري لأي طلب) |
-| `GET /api/housing-requests` | A | قائمة مُصفّاة ومُصفّحة (`housingCycleId`، `governorateId`، `status`، `admissionStatus`) |
+| `GET /api/housing-requests` | A | قائمة مُصفّاة ومُصفّحة. فلاتر (اختيارية، AND): `housingCycleId`، `governorateId`، `status`، `admissionStatus`، `studentIds[]`، `academicLevel`، `gender`، `isPaid`، `hasSpecialNeeds`، `isPreviousResident`، `isGrouped`، `submittedFrom`/`submittedTo`. كلها على مستوى قاعدة البيانات عبر `HousingRequestFilterParams`. |
 | `GET /api/housing-requests/{id}` | A | تفصيل طلب |
 | `POST /api/housing-requests/{id}/documents/{documentId}/review` | A | مراجعة وثيقة |
 | `POST /api/housing-requests/{id}/decision` | A | قرار القبول (Upsert) |

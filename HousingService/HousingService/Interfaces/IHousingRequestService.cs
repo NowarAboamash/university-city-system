@@ -11,7 +11,7 @@ public interface IHousingRequestService
 
     Task<HousingRequestDto?> GetMineByIdAsync(string studentId, int id);
 
-    Task<PagedResult<HousingRequestDto>> GetAllAsync(int? housingCycleId, int? governorateId, HousingRequestStatus? status, AdmissionDecisionStatus? admissionStatus, PaginationParams pagination);
+    Task<PagedResult<HousingRequestDto>> GetAllAsync(HousingRequestFilterParams filter, PaginationParams pagination);
 
     Task<HousingRequestDto?> GetByIdAsync(int id);
 

@@ -39,7 +39,9 @@ straight through instead of a half-built body. Aggregation is GET-only (Ocelot
 
 **Frontend hand-off:** `frontend-dashboard-and-payment.md` in this folder has the full
 response shapes, enum mappings, and the housing-fee payment / settings endpoints, written for
-the dashboard and student-payment UI work.
+the dashboard and student-payment UI work. `frontend-housing-requests-filters.md` documents
+the query filters on `GET /api/housing-requests` (cycle, governorate, status, studentIds,
+academicLevel, gender, isPaid, specialNeeds, grouped, submitted-date range).
 
 ### Images are Cloudinary URLs, not local paths
 

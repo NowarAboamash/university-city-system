@@ -153,7 +153,8 @@ public sealed class TestContext : IDisposable
     /// <summary>Creates a HousingRequest, optionally already Accepted, optionally already in a group.</summary>
     public HousingRequest AddRequest(int id, string studentId, int cycleId, int governorateId, Gender gender,
         int? housingGroupId = null, AdmissionDecisionStatus? decisionStatus = null,
-        DateTime? paymentDueDate = null, bool isPaid = false, bool reminderSent = false)
+        DateTime? paymentDueDate = null, bool isPaid = false, bool reminderSent = false,
+        AcademicLevel academicLevel = AcademicLevel.First, bool hasSpecialNeeds = false, bool isPreviousResident = false)
     {
         var request = new HousingRequest
         {
@@ -161,10 +162,12 @@ public sealed class TestContext : IDisposable
             StudentId = studentId,
             Gender = gender,
             GovernorateId = governorateId,
-            AcademicLevel = AcademicLevel.First,
+            AcademicLevel = academicLevel,
             HousingCycleId = cycleId,
             DetailedAddress = "Test address",
             HousingGroupId = housingGroupId,
+            HasSpecialNeeds = hasSpecialNeeds,
+            IsPreviousResident = isPreviousResident,
             Status = HousingRequestStatus.Locked,
             PaymentDueDate = paymentDueDate,
             IsPaid = isPaid,
