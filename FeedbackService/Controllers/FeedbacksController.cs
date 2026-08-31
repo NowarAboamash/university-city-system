@@ -50,6 +50,18 @@ namespace FeedbackService.Controllers
             return Ok(feedbacks);
         }
 
+        // Admin overview tiles: open-complaint count + the latest few feedback items.
+        [HttpGet("dashboard")]
+        public async Task<ActionResult<FeedbackDashboardDto>> GetDashboard()
+        {
+            if (!IsAdmin())
+            {
+                return Forbid();
+            }
+
+            return Ok(await _feedbackService.GetDashboardAsync());
+        }
+
         [HttpGet("{id:int}")]
         public async Task<ActionResult<FeedbackReadDto>> GetById(int id)
         {

@@ -1,5 +1,6 @@
 using FeedbackService.Data;
 using FeedbackService.DTOs;
+using FeedbackService.Enums;
 using FeedbackService.Interfaces;
 using FeedbackService.Models;
 using Microsoft.EntityFrameworkCore;
@@ -75,6 +76,56 @@ namespace FeedbackService.Services
                 PageNumber = parameters.PageNumber,
                 PageSize = parameters.PageSize,
                 TotalCount = totalCount
+            };
+        }
+
+        public async Task<FeedbackDashboardDto> GetDashboardAsync()
+        {
+            var feedbacks = _context.Feedbacks.AsNoTracking();
+
+            var openComplaints = await feedbacks.CountAsync(f => f.Type == FeedbackType.Complaint && f.RepliedAt == null);
+            var unreadCount = await feedbacks.CountAsync(f => !f.IsRead);
+            var totalComplaints = await feedbacks.CountAsync(f => f.Type == FeedbackType.Complaint);
+            var totalSuggestions = await feedbacks.CountAsync(f => f.Type == FeedbackType.Suggestion);
+
+            var recentRaw = await feedbacks
+                .OrderByDescending(f => f.CreatedAt)
+                .Take(5)
+                .Select(f => new
+                {
+                    f.Id,
+                    f.Type,
+                    f.Title,
+                    f.StudentId,
+                    f.IsAnonymous,
+                    f.IsRead,
+                    IsReplied = f.RepliedAt != null,
+                    f.CreatedAt
+                })
+                .ToListAsync();
+
+            var lookupIds = recentRaw.Where(r => !r.IsAnonymous).Select(r => r.StudentId).Distinct().ToList();
+            IReadOnlyDictionary<string, UserInfo> names = lookupIds.Count > 0
+                ? await _userLookupService.LookupUsersAsync(lookupIds)
+                : new Dictionary<string, UserInfo>();
+
+            return new FeedbackDashboardDto
+            {
+                OpenComplaints = openComplaints,
+                UnreadCount = unreadCount,
+                TotalComplaints = totalComplaints,
+                TotalSuggestions = totalSuggestions,
+                RecentFeedback = recentRaw.Select(r => new FeedbackDashboardItemDto
+                {
+                    Id = r.Id,
+                    Type = r.Type,
+                    Title = r.Title,
+                    IsAnonymous = r.IsAnonymous,
+                    IsRead = r.IsRead,
+                    IsReplied = r.IsReplied,
+                    CreatedAt = r.CreatedAt,
+                    StudentName = !r.IsAnonymous && names.TryGetValue(r.StudentId, out var u) ? u.FullName : null
+                }).ToList()
             };
         }
 

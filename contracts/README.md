@@ -18,6 +18,25 @@ All requests should go through the Gateway (`http://localhost:5067` locally), us
 
 **`/api/internal/*` (user lookup, FCM token listing) is deliberately NOT routed through the Gateway.** Those endpoints are server-to-server only — protected by `X-Internal-Api-Key`, not a user JWT — and AuthService's own OpenAPI doc says as much ("Never call these from a browser or with a user's JWT"). Exposing the route publicly wouldn't be a security hole by itself (the key check still applies), but it's unnecessary attack surface for zero benefit: our services (`SharedKernel.Users.IUserLookupService`, NotificationService's FCM lookup) already call AuthService directly using its base URL, never through the Gateway, for exactly this reason.
 
+### Admin dashboard aggregate (`GET /api/dashboard`)
+
+The Gateway exposes one aggregate endpoint that fans out to the two per-service dashboard
+endpoints and **merges their JSON into a single flat object** (top-level keys don't overlap):
+
+| Upstream (Gateway) | Downstream | Auth |
+|---|---|---|
+| `GET /api/dashboard` | HousingService `GET /api/housing-requests/dashboard` + FeedbackService `GET /api/feedbacks/dashboard` | `admin` / `super_admin` Bearer token, forwarded to both |
+| `GET /api/dashboard/housing` | just the housing half | same |
+| `GET /api/dashboard/feedback` | just the feedback half | same |
+
+Housing keys: `pendingRequests`, `occupancyRate`, `occupiedBeds`, `totalBeds`,
+`totalHousedStudents`, `rooms`, `recentRequests`, `weeklyOccupancy`.
+Feedback keys: `openComplaints`, `unreadCount`, `totalComplaints`, `totalSuggestions`,
+`recentFeedback`.
+If either downstream returns a non-200 (e.g. token missing/expired), that response is passed
+straight through instead of a half-built body. Aggregation is GET-only (Ocelot
+`Aggregates` + a custom `DashboardAggregator`).
+
 ### Images are Cloudinary URLs, not local paths
 
 `FeedbackImageDto.imagePath` and `AdvertisementDto.imageUrl` are now full, absolute Cloudinary URLs (e.g. `https://res.cloudinary.com/<cloud>/image/upload/v.../feedback/xyz.png`), publicly fetchable directly — **do not** prefix them with the Gateway or service origin, and don't route them through `/api/...`. Both services used to store images on local disk and serve them via `/uploads/...` or a local proxy endpoint; that's gone (the old `/api/advertisementimages/advertisements/{fileName}` endpoint was removed). This also means images now work correctly across independently-hosted services — no gateway routing needed for them at all.

@@ -271,6 +271,28 @@
       "SwaggerKey": "housing"
     },
     {
+      "DownstreamPathTemplate": "/api/housing-requests/dashboard",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "housingservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/api/dashboard/housing",
+      "UpstreamHttpMethod": [ "GET" ],
+      "Key": "housing-dashboard",
+      "SwaggerKey": "housing"
+    },
+    {
+      "DownstreamPathTemplate": "/api/feedbacks/dashboard",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "feedbackservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/api/dashboard/feedback",
+      "UpstreamHttpMethod": [ "GET" ],
+      "Key": "feedback-dashboard",
+      "SwaggerKey": "feedback"
+    },
+    {
       "DownstreamPathTemplate": "/api/auth/{everything}",
       "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
@@ -289,6 +311,14 @@
       "UpstreamPathTemplate": "/api/admin/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PATCH", "DELETE" ],
       "SwaggerKey": "auth"
+    }
+  ],
+  "Aggregates": [
+    {
+      "UpstreamPathTemplate": "/api/dashboard",
+      "UpstreamHttpMethod": [ "GET" ],
+      "RouteKeys": [ "housing-dashboard", "feedback-dashboard" ],
+      "Aggregator": "DashboardAggregator"
     }
   ],
   "SwaggerEndPoints": [

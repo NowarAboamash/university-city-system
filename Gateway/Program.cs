@@ -1,3 +1,4 @@
+using Gateway;
 using MMLib.SwaggerForOcelot;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
@@ -13,7 +14,8 @@ var ocelotConfigFile = builder.Environment.EnvironmentName switch
 builder.Configuration.AddJsonFile(ocelotConfigFile, optional: false, reloadOnChange: true);
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddOcelot(builder.Configuration);
+builder.Services.AddOcelot(builder.Configuration)
+    .AddSingletonDefinedAggregator<DashboardAggregator>();
 builder.Services.AddSwaggerForOcelot(builder.Configuration);
 
 builder.Services.AddCors(options =>

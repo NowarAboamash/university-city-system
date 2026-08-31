@@ -346,6 +346,35 @@
         }
       }
     },
+    "/api/Feedbacks/dashboard": {
+      "get": {
+        "tags": [
+          "Feedbacks"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackDashboardDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackDashboardDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackDashboardDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Feedbacks/{id}": {
       "get": {
         "tags": [
@@ -613,6 +642,69 @@
           },
           "isAnonymous": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FeedbackDashboardDto": {
+        "type": "object",
+        "properties": {
+          "openComplaints": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unreadCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalComplaints": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalSuggestions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recentFeedback": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedbackDashboardItemDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "FeedbackDashboardItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "type": {
+            "$ref": "#/components/schemas/FeedbackType"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "studentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "isAnonymous": {
+            "type": "boolean"
+          },
+          "isRead": {
+            "type": "boolean"
+          },
+          "isReplied": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false
