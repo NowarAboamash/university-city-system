@@ -17,11 +17,16 @@ public class HousingRequestsController : ControllerBase
 
     private readonly IHousingRequestService _requestService;
     private readonly IHousingSettingsService _settingsService;
+    private readonly IDashboardService _dashboardService;
 
-    public HousingRequestsController(IHousingRequestService requestService, IHousingSettingsService settingsService)
+    public HousingRequestsController(
+        IHousingRequestService requestService,
+        IHousingSettingsService settingsService,
+        IDashboardService dashboardService)
     {
         _requestService = requestService;
         _settingsService = settingsService;
+        _dashboardService = dashboardService;
     }
 
     [Authorize(Roles = StudentRole)]
@@ -178,6 +183,13 @@ public class HousingRequestsController : ControllerBase
             PaymentOutcome.GatewayError => StatusCode(StatusCodes.Status502BadGateway, new { message = result.Message }),
             _ => StatusCode(StatusCodes.Status500InternalServerError, new { message = result.Message })
         };
+    }
+
+    [Authorize(Roles = AdminRoles)]
+    [HttpGet("dashboard")]
+    public async Task<ActionResult<HousingDashboardDto>> GetDashboard(CancellationToken cancellationToken)
+    {
+        return Ok(await _dashboardService.GetAsync(cancellationToken));
     }
 
     [Authorize(Roles = AdminRoles)]

@@ -42,6 +42,7 @@ public sealed class TestContext : IDisposable
     public IBuildingEvacuationService EvacuationService { get; }
     public IHousingSettingsService SettingsService { get; }
     public IPaymentReminderService PaymentReminderService { get; }
+    public IDashboardService DashboardService { get; }
 
     public TestContext(DateTimeOffset? now = null)
     {
@@ -83,6 +84,7 @@ public sealed class TestContext : IDisposable
         EvacuationService = new BuildingEvacuationService(BuildingRepository, AllocationRepository, RoomRepository, Notifications, Clock);
         SettingsService = new HousingSettingsService(SettingsRepository, Clock);
         PaymentReminderService = new PaymentReminderService(RequestRepository, SettingsRepository, Notifications, Clock);
+        DashboardService = new DashboardService(Db, userLookup, Clock);
     }
 
     // --- Seed helpers -----------------------------------------------------

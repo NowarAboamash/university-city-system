@@ -40,6 +40,7 @@ builder.Services.AddScoped<IAllocationService, AllocationService>();
 builder.Services.AddScoped<IBuildingEvacuationService, BuildingEvacuationService>();
 builder.Services.AddScoped<IHousingSettingsRepository, HousingSettingsRepository>();
 builder.Services.AddScoped<IHousingSettingsService, HousingSettingsService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IPaymentReminderService, PaymentReminderService>();
 builder.Services.AddHostedService<PaymentReminderJob>();
 builder.Services.AddCloudinaryImageUploader();

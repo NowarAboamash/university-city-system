@@ -2249,6 +2249,35 @@
         }
       }
     },
+    "/api/housing-requests/dashboard": {
+      "get": {
+        "tags": [
+          "HousingRequests"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/HousingDashboardDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HousingDashboardDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HousingDashboardDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/housing-requests/settings": {
       "get": {
         "tags": [
@@ -2859,6 +2888,80 @@
         },
         "additionalProperties": false
       },
+      "DashboardOccupancyPointDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "occupiedBeds": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DashboardRequestDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "studentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "governorateId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "academicLevel": {
+            "$ref": "#/components/schemas/AcademicLevel"
+          },
+          "isGroup": {
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/HousingRequestStatus"
+          },
+          "admissionStatus": {
+            "$ref": "#/components/schemas/AdmissionDecisionStatus"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DashboardRoomStatusDto": {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "occupied": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "outOfService": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "DocumentReviewStatus": {
         "enum": [
           0,
@@ -3022,6 +3125,49 @@
         ],
         "type": "integer",
         "format": "int32"
+      },
+      "HousingDashboardDto": {
+        "type": "object",
+        "properties": {
+          "pendingRequests": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "occupancyRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "occupiedBeds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalBeds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalHousedStudents": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rooms": {
+            "$ref": "#/components/schemas/DashboardRoomStatusDto"
+          },
+          "recentRequests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardRequestDto"
+            },
+            "nullable": true
+          },
+          "weeklyOccupancy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardOccupancyPointDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       },
       "HousingGroupDto": {
         "type": "object",
