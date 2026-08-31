@@ -117,6 +117,22 @@ builder.Services.AddAuthServiceUserLookup(builder.Configuration);
 
 **المستهلكون:** FeedbackService (أسماء في قائمة الشكاوى)، HousingService (أسماء أعضاء الغروب وطالبي الانضمام).
 
+### 4.4 عملاء AuthService الداخليون الآخرون — `IWalletClient` (محلي في HousingService، ليس في SharedKernel)
+
+خصم رسوم السكن من محفظة الطالب في AuthService يتمّ عبر `IWalletClient` / `AuthServiceWalletClient`، وهو **يعيش في HousingService** (`HousingService/External/WalletClient.cs`) لا في SharedKernel — لأن HousingService هي الخدمة الوحيدة التي تشحن المحفظة، فلا داعٍ لترقيته إلى المكتبة المشتركة. لكنه **يتبع نفس نمط SharedKernel بدقّة**:
+
+```csharp
+Task<WalletChargeResult> ChargeAsync(string userId, decimal amount, string reference, string description, ...);
+// WalletChargeResult { bool Success, bool InsufficientBalance, decimal? NewBalance }
+```
+
+- `HttpClient` مُنمَّط يُسجَّل بـ `AddHousingWalletClient(configuration)`، بنمط **«بيئة ثم إعداد»**: يقرأ `AUTH_SERVICE_BASE_URL` / `AuthService:BaseUrl` و`AUTH_SERVICE_INTERNAL_API_KEY` / `AuthService:InternalApiKey` — **نفس مفتاح `X-Internal-Api-Key` ونفس العنوان** المستخدمَين لـ `IUserLookupService`، فلا إعداد جديد.
+- ينادي `POST api/internal/wallet/charge` بترويسة `X-Internal-Api-Key`. الردود: `200` ⇒ نجاح + `data.balance`؛ `402` ⇒ رصيد غير كافٍ؛ أي شيء آخر (404 مستخدم غير موجود، 401 مفتاح، 5xx) ⇒ **يُرمى استثناء** يلتقطه المستدعي (الطلب يبقى غير مدفوع).
+- **خلاف `IUserLookupService`/`INotificationPublisher`، هذا العميل يرمي استثناءً عند الخطأ عمدًا** — تحريك المال ليس تكاملًا اختياريًا «آمن الفشل»؛ يجب أن يعرف المستدعي بدقّة أن الخصم لم ينجح.
+- AuthService **مُحايِد للتكرار (idempotent)** على `(userId, reference)` (المرجع `housing-request-{id}`)، ما يجعل نداءات الدفع المتزامنة آمنة.
+
+**متى يُرقَّى إلى SharedKernel؟** إذا احتاجت خدمة ثانية شحن المحفظة، يُنقَل إلى `SharedKernel/Users/` (أو قسم `Wallet/` جديد) بنفس أسلوب `AddAuthServiceUserLookup`.
+
 ---
 
 ## 5. قسم الوسائط — `Media/`
@@ -161,3 +177,4 @@ Task<bool>   DeleteAsync(string secureUrl, ...);
 - `PagedResult<T>` و`PaginationParams` **ليسا** في SharedKernel — كل خدمة تعرّف نسختها الخاصّة بشكل متطابق (يراها مولّد العملاء غلافًا موحّدًا رغم ذلك).
 - تعداد `NotificationTargetType` مكرّر بين SharedKernel وNotificationService (يجب إبقاؤهما متطابقين يدويًا).
 - SharedKernel يفترض بنية AuthService الحالية لنقاط `/api/internal/*` وشكل حمولاتها.
+- `IWalletClient` (شحن محفظة AuthService) **ليس في SharedKernel** بل محلي في HousingService — مستهلك وحيد؛ يتبع نمط الإعداد نفسه ويشارك مفاتيح `AuthService:*` (انظر §4.4). يُرقَّى عند ظهور مستهلك ثانٍ.
