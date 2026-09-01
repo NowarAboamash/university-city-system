@@ -170,13 +170,13 @@ public class HousingRequestsController : ControllerBase
         var result = await _requestService.PayAsync(studentId, id);
         return result.Outcome switch
         {
-            PaymentOutcome.Success => Ok(new { message = result.Message, balance = result.NewBalance }),
+            PaymentOutcome.Success => Ok(new { message = result.Message, amount = result.Amount, balance = result.NewBalance }),
             PaymentOutcome.RequestNotFound => NotFound(),
             PaymentOutcome.NotOwned => StatusCode(StatusCodes.Status403Forbidden, new { message = result.Message }),
             PaymentOutcome.NotAccepted => BadRequest(new { message = result.Message }),
-            PaymentOutcome.AlreadyPaid => Conflict(new { message = result.Message }),
+            PaymentOutcome.AlreadyPaid => Conflict(new { message = result.Message, amount = result.Amount }),
             PaymentOutcome.FeeNotConfigured => Conflict(new { message = result.Message }),
-            PaymentOutcome.InsufficientBalance => StatusCode(StatusCodes.Status402PaymentRequired, new { message = result.Message }),
+            PaymentOutcome.InsufficientBalance => StatusCode(StatusCodes.Status402PaymentRequired, new { message = result.Message, amount = result.Amount }),
             PaymentOutcome.GatewayError => StatusCode(StatusCodes.Status502BadGateway, new { message = result.Message }),
             _ => StatusCode(StatusCodes.Status500InternalServerError, new { message = result.Message })
         };

@@ -429,7 +429,7 @@ public class HousingRequestService : IHousingRequestService
 
         if (request.IsPaid)
         {
-            return Fail(PaymentOutcome.AlreadyPaid, "تم دفع رسوم هذا الطلب مسبقاً.");
+            return Fail(PaymentOutcome.AlreadyPaid, "تم دفع رسوم هذا الطلب مسبقاً.", request.AmountPaid ?? request.FeeAmount);
         }
 
         if (request.AdmissionDecision?.Status != AdmissionDecisionStatus.Accepted)
@@ -443,7 +443,7 @@ public class HousingRequestService : IHousingRequestService
         var amountToCharge = request.FeeAmount ?? settings.HousingFeeAmount;
         if (amountToCharge <= 0)
         {
-            return Fail(PaymentOutcome.FeeNotConfigured, "لم يتم تحديد رسم السكن بعد. حاول لاحقاً.");
+            return Fail(PaymentOutcome.FeeNotConfigured, "لم يتم تحديد رسم السكن بعد. حاول لاحقاً.", amountToCharge);
         }
 
         WalletChargeResult charge;
@@ -458,17 +458,17 @@ public class HousingRequestService : IHousingRequestService
         catch (Exception)
         {
             // AuthService unreachable / 5xx / misconfig — never mark the request paid.
-            return Fail(PaymentOutcome.GatewayError, "تعذّر إتمام الدفع حالياً. حاول لاحقاً.");
+            return Fail(PaymentOutcome.GatewayError, "تعذّر إتمام الدفع حالياً. حاول لاحقاً.", amountToCharge);
         }
 
         if (charge.InsufficientBalance)
         {
-            return Fail(PaymentOutcome.InsufficientBalance, "رصيدك لا يكفي لدفع رسوم السكن.");
+            return Fail(PaymentOutcome.InsufficientBalance, "رصيدك لا يكفي لدفع رسوم السكن.", amountToCharge);
         }
 
         if (!charge.Success)
         {
-            return Fail(PaymentOutcome.GatewayError, "تعذّر إتمام الدفع حالياً. حاول لاحقاً.");
+            return Fail(PaymentOutcome.GatewayError, "تعذّر إتمام الدفع حالياً. حاول لاحقاً.", amountToCharge);
         }
 
         // Safe against concurrent /pay calls for the same request: auth-service is idempotent
@@ -492,13 +492,14 @@ public class HousingRequestService : IHousingRequestService
         return new PayHousingRequestResultDto
         {
             Outcome = PaymentOutcome.Success,
+            Amount = amountToCharge,
             NewBalance = charge.NewBalance,
             Message = "تم الدفع بنجاح."
         };
     }
 
-    private static PayHousingRequestResultDto Fail(PaymentOutcome outcome, string message)
-        => new() { Outcome = outcome, Message = message };
+    private static PayHousingRequestResultDto Fail(PaymentOutcome outcome, string message, decimal? amount = null)
+        => new() { Outcome = outcome, Message = message, Amount = amount };
 
     public async Task<PaymentSummaryDto> GetPaymentSummaryAsync(int? housingCycleId, DateTime? paidFrom, DateTime? paidTo)
     {

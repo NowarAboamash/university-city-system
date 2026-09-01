@@ -213,6 +213,7 @@ public class PaymentTests
 
         Assert.Equal(PaymentOutcome.Success, result.Outcome);
         Assert.Equal(75m, result.NewBalance);
+        Assert.Equal(25m, result.Amount);
 
         var call = Assert.Single(ctx.WalletClient.Calls);
         Assert.Equal("student-1", call.UserId);
@@ -235,6 +236,7 @@ public class PaymentTests
         var result = await ctx.RequestService.PayAsync("student-1", requestId);
 
         Assert.Equal(PaymentOutcome.InsufficientBalance, result.Outcome);
+        Assert.Equal(25m, result.Amount); // the UI needs "you needed X"
         Assert.False(ctx.Db.HousingRequests.Single(r => r.Id == requestId).IsPaid);
     }
 
@@ -338,6 +340,7 @@ public class PaymentTests
         var result = await ctx.RequestService.PayAsync("s1", request.Id);
 
         Assert.Equal(PaymentOutcome.Success, result.Outcome);
+        Assert.Equal(25m, result.Amount);
         Assert.Equal(25m, Assert.Single(ctx.WalletClient.Calls).Amount);
         Assert.Equal(25m, ctx.Db.HousingRequests.Single(r => r.Id == request.Id).AmountPaid);
     }
