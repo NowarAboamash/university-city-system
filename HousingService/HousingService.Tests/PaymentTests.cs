@@ -305,4 +305,106 @@ public class PaymentTests
         Assert.Equal(PaymentOutcome.NotOwned, result.Outcome);
         Assert.Empty(ctx.WalletClient.Calls);
     }
+
+    // --- Fee frozen at acceptance ---------------------------------------
+
+    [Fact]
+    public async Task MakeDecision_FirstAcceptance_FreezesFeeAmount()
+    {
+        using var ctx = new TestContext();
+        await ctx.SettingsService.UpdateAsync(Settings(fee: 25m));
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var request = ctx.AddRequest(1000, "s1", cycle.Id, gov.Id, Gender.Female);
+
+        await ctx.RequestService.MakeDecisionAsync(request.Id, new MakeAdmissionDecisionDto { Status = AdmissionDecisionStatus.Accepted }, "admin-1");
+
+        Assert.Equal(25m, ctx.Db.HousingRequests.Single(r => r.Id == request.Id).FeeAmount);
+    }
+
+    [Fact]
+    public async Task Pay_ChargesFeeFrozenAtAcceptance_NotCurrentSetting()
+    {
+        using var ctx = new TestContext();
+        await ctx.SettingsService.UpdateAsync(Settings(fee: 25m));
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var request = ctx.AddRequest(1000, "s1", cycle.Id, gov.Id, Gender.Female);
+        await ctx.RequestService.MakeDecisionAsync(request.Id, new MakeAdmissionDecisionDto { Status = AdmissionDecisionStatus.Accepted }, "admin-1");
+
+        // Admin raises the fee AFTER this student was accepted.
+        await ctx.SettingsService.UpdateAsync(Settings(fee: 40m));
+
+        var result = await ctx.RequestService.PayAsync("s1", request.Id);
+
+        Assert.Equal(PaymentOutcome.Success, result.Outcome);
+        Assert.Equal(25m, Assert.Single(ctx.WalletClient.Calls).Amount);
+        Assert.Equal(25m, ctx.Db.HousingRequests.Single(r => r.Id == request.Id).AmountPaid);
+    }
+
+    // --- Payment summary ----------------------------------------------
+
+    [Fact]
+    public async Task PaymentSummary_AggregatesAcceptedRequests()
+    {
+        using var ctx = new TestContext();
+        await ctx.SettingsService.UpdateAsync(Settings(fee: 25m));
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+
+        // 3 accepted: 2 paid (25 each), 1 unpaid
+        ctx.AddRequest(1000, "p1", cycle.Id, gov.Id, Gender.Female, decisionStatus: AdmissionDecisionStatus.Accepted, feeAmount: 25m, isPaid: true, amountPaid: 25m);
+        ctx.AddRequest(1001, "p2", cycle.Id, gov.Id, Gender.Female, decisionStatus: AdmissionDecisionStatus.Accepted, feeAmount: 25m, isPaid: true, amountPaid: 25m);
+        ctx.AddRequest(1002, "u1", cycle.Id, gov.Id, Gender.Female, decisionStatus: AdmissionDecisionStatus.Accepted, feeAmount: 25m);
+        // not accepted -> excluded entirely
+        ctx.AddRequest(1003, "n1", cycle.Id, gov.Id, Gender.Female, decisionStatus: AdmissionDecisionStatus.WaitingList);
+
+        var s = await ctx.RequestService.GetPaymentSummaryAsync(null, null, null);
+
+        Assert.Equal(3, s.CountAccepted);
+        Assert.Equal(2, s.CountPaid);
+        Assert.Equal(1, s.CountUnpaid);
+        Assert.Equal(75m, s.TotalRequired);
+        Assert.Equal(50m, s.TotalPaid);
+        Assert.Equal(25m, s.TotalOutstanding);
+        Assert.Equal(50m, s.PaidInRange);
+        Assert.Equal(2, s.CountPaidInRange);
+    }
+
+    [Fact]
+    public async Task PaymentSummary_PaidDateRange_ScopesOnlyInRangeFields()
+    {
+        using var ctx = new TestContext();
+        await ctx.SettingsService.UpdateAsync(Settings(fee: 25m));
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var day0 = ctx.Clock.GetUtcNow().UtcDateTime;
+
+        ctx.AddRequest(1000, "early", cycle.Id, gov.Id, Gender.Female, decisionStatus: AdmissionDecisionStatus.Accepted, feeAmount: 25m, isPaid: true, amountPaid: 25m, paidAt: day0);
+        ctx.AddRequest(1001, "late", cycle.Id, gov.Id, Gender.Female, decisionStatus: AdmissionDecisionStatus.Accepted, feeAmount: 25m, isPaid: true, amountPaid: 25m, paidAt: day0.AddDays(10));
+
+        var s = await ctx.RequestService.GetPaymentSummaryAsync(null, day0.AddDays(5), day0.AddDays(15));
+
+        Assert.Equal(2, s.CountPaid);            // all-time snapshot unchanged
+        Assert.Equal(50m, s.TotalPaid);
+        Assert.Equal(1, s.CountPaidInRange);     // only "late" falls in [day5, day15]
+        Assert.Equal(25m, s.PaidInRange);
+    }
+
+    [Fact]
+    public async Task PaymentSummary_CycleFilter()
+    {
+        using var ctx = new TestContext();
+        await ctx.SettingsService.UpdateAsync(Settings(fee: 25m));
+        var cycleA = ctx.AddOpenCycle(1000);
+        var cycleB = ctx.AddOpenCycle(1001);
+        var gov = ctx.AddGovernorate(1000);
+        ctx.AddRequest(1000, "a1", cycleA.Id, gov.Id, Gender.Female, decisionStatus: AdmissionDecisionStatus.Accepted, feeAmount: 25m);
+        ctx.AddRequest(1001, "b1", cycleB.Id, gov.Id, Gender.Female, decisionStatus: AdmissionDecisionStatus.Accepted, feeAmount: 25m);
+
+        var s = await ctx.RequestService.GetPaymentSummaryAsync(cycleA.Id, null, null);
+
+        Assert.Equal(1, s.CountAccepted);
+        Assert.Equal(25m, s.TotalRequired);
+    }
 }

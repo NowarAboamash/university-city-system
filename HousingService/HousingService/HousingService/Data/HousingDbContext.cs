@@ -62,6 +62,8 @@ public class HousingDbContext : DbContext
             entity.Property(e => e.DetailedAddress).IsRequired().HasMaxLength(500);
             entity.Property(e => e.PreviousRoomNumber).HasMaxLength(50);
             entity.Property(e => e.SpecialNotes).HasMaxLength(1000);
+            entity.Property(e => e.FeeAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.AmountPaid).HasColumnType("decimal(18,2)");
             entity.HasMany(e => e.Documents)
                 .WithOne(d => d.HousingRequest)
                 .HasForeignKey(d => d.HousingRequestId)

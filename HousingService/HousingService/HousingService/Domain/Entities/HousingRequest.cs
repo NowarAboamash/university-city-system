@@ -33,8 +33,14 @@ public class HousingRequest
     // the first AdmissionDecision == Accepted, at which point it's set to
     // now + HousingSettings.PaymentDeadlineDays and never moved again.
     public DateTime? PaymentDueDate { get; set; }
+    // The fee amount frozen at acceptance (from HousingSettings.HousingFeeAmount at that
+    // moment) — so a later settings change never alters what an already-accepted student owes.
+    public decimal? FeeAmount { get; set; }
     public bool IsPaid { get; set; }
     public DateTime? PaidAt { get; set; }
+    // The amount actually charged on the successful payment (= FeeAmount at pay time). Kept
+    // explicitly so financial totals reconcile with AuthService's wallet ledger exactly.
+    public decimal? AmountPaid { get; set; }
     // Guards the automatic reminder against being sent more than once per request.
     public bool ReminderSent { get; set; }
 

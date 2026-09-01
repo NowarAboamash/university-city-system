@@ -212,14 +212,15 @@ HousingSettings: سطر مفرد مستقل (Id = 1)
 
 | # | القاعدة |
 |---|---|
-| BR‑P1 | الرسم يُستحقّ فقط بعد **قبول** الطلب. `PaymentDueDate` يُختم **مرّة واحدة** أول مرة يصير القرار `Accepted`، إلى `تاريخ_القبول + PaymentDeadlineDays`، ولا يُحرَّك أبدًا (تغيير الإعداد لاحقًا، أو عكس القرار ثم إعادة قبوله، يُبقي التاريخ الأصلي). |
-| BR‑P2 | مبلغ الرسم = `HousingSettings.HousingFeeAmount` واحد عام قابل لتعديل الإدارة (كل الغرف مستوى واحد). يجب أن يكون > 0 كي ينجح الدفع. |
-| BR‑P3 | الدفع مبادرة من الطالب: خصم من محفظته في AuthService (`POST /api/internal/wallet/charge`، المرجع `housing-request-{id}`). عند نجاح HTTP 200 فقط يُوسَم `IsPaid` ويُختم `PaidAt` ويُطلَق إشعار إتمام. |
+| BR‑P1 | الرسم يُستحقّ فقط بعد **قبول** الطلب. `PaymentDueDate` **و** `FeeAmount` يُختمان **مرّة واحدة** أول مرة يصير القرار `Accepted` (المهلة = `تاريخ_القبول + PaymentDeadlineDays`، الرسم = `HousingSettings.HousingFeeAmount` وقتها)، ولا يُحرَّكان أبدًا — تغيير الإعداد لاحقًا لا يمسّ من قُبِل سابقًا. |
+| BR‑P2 | `HousingSettings.HousingFeeAmount` رسم عام واحد قابل لتعديل الإدارة (كل الغرف مستوى واحد). الدفع يخصم **الرسم المجمَّد على الطلب** (`FeeAmount`)، لا القيمة الحالية؛ يجب أن يكون المبلغ > 0 كي ينجح. |
+| BR‑P3 | الدفع مبادرة من الطالب: خصم من محفظته في AuthService (`POST /api/internal/wallet/charge`، المرجع `housing-request-{id}`). عند نجاح HTTP 200 فقط يُوسَم `IsPaid`، ويُختم `PaidAt`، ويُخزَّن `AmountPaid` = المبلغ المخصوم فعلاً (كي تتطابق الإجماليات مع دفتر AuthService)، ويُطلَق إشعار إتمام. |
 | BR‑P4 | حرّاس الدفع: الطلب موجود، والمستدعي مالكه، وغير مدفوع، وقراره `Accepted`، والرسم مضبوط. رصيد غير كافٍ ⇒ 402 والطلب يبقى غير مدفوع. تعذُّر البوابة (AuthService غير متاح/‏5xx) ⇒ 502 والطلب غير مدفوع. |
 | BR‑P5 | AuthService **مُحايِد للتكرار (idempotent)** على `(userId, reference)`: أي خصم مكرَّر أو متزامن بنفس المرجع `housing-request-{id}` يُعيد 200 بالرصيد الأصلي دون تحريك أي مبلغ — لذا نداءات `/pay` المتزامنة آمنة؛ فحص `IsPaid` المحلي يمنع كتابة زائدة فقط. |
 | BR‑P6 | الدفع بعد انقضاء المهلة ما يزال مسموحًا — المهلة تُحرّك التذكير فقط؛ تحرير مكان غير مدفوع إجراء إداري يدوي منفصل. |
 | BR‑P7 | `PaymentReminderJob` (BackgroundService) يعمل كل 24 ساعة عبر `IPaymentReminderService.RunAsync()`: يُشعِر كل طلب `Accepted` + غير مدفوع + `!ReminderSent` استحقاقه ضمن `ReminderDaysBefore` يومًا (المتأخّرون مشمولون كي لا تُتخطّى تذكيرات عند فوات دورة)، ثم يضبط `ReminderSent`. |
 | BR‑P8 | تحقّق الإعدادات: `PaymentDeadlineDays > 0`، `0 < ReminderDaysBefore < PaymentDeadlineDays`، `HousingFeeAmount >= 0` وبحدّ أقصى خانتان عشريتان (محفظة AuthService تخزّن المبلغ كرقم JSON عادي، لا `Decimal128`). |
+| BR‑P9 | `GET /api/housing-requests/payment-summary` (إداري) يحسب من جدول الطلبات مباشرةً: `totalRequired` (مجموع `FeeAmount` للمقبولة)، `totalPaid`/`totalOutstanding`، `countAccepted`/`countPaid`/`countUnpaid`. `?housingCycleId=` يقيّد الكل؛ `?paidFrom=`/`?paidTo=` يقيّدان `paidInRange`/`countPaidInRange` فقط (لمطابقة دفتر AuthService لفترة). AuthService يملك حركات الأموال؛ housing-service يملك «كم المطلوب / كم طلب» — الرقمان يجب أن يتطابقا وإلا فهو مؤشر خلل. |
 
 ### 3.9 لوحة المعلومات الإدارية (Dashboard)
 
@@ -365,6 +366,7 @@ HousingSettings: سطر مفرد مستقل (Id = 1)
 | `POST /api/housing-requests/{id}/decision` | A | قرار القبول (Upsert) |
 | `POST /api/housing-requests/{id}/pay` | S | دفع الرسوم |
 | `GET` \| `PUT /api/housing-requests/settings` | A | إعدادات الدفع |
+| `GET /api/housing-requests/payment-summary` | A | إجماليات مالية (`?housingCycleId`, `?paidFrom`, `?paidTo`) |
 | `GET /api/housing-requests/dashboard` | A | نظرة عامة للوحة الإدارة (حمولة تجميعية واحدة) |
 
 ### الغروبات

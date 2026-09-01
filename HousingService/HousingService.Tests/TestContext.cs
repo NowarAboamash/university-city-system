@@ -155,7 +155,8 @@ public sealed class TestContext : IDisposable
     public HousingRequest AddRequest(int id, string studentId, int cycleId, int governorateId, Gender gender,
         int? housingGroupId = null, AdmissionDecisionStatus? decisionStatus = null,
         DateTime? paymentDueDate = null, bool isPaid = false, bool reminderSent = false,
-        AcademicLevel academicLevel = AcademicLevel.First, bool hasSpecialNeeds = false, bool isPreviousResident = false)
+        AcademicLevel academicLevel = AcademicLevel.First, bool hasSpecialNeeds = false, bool isPreviousResident = false,
+        decimal? feeAmount = null, decimal? amountPaid = null, DateTime? paidAt = null)
     {
         var request = new HousingRequest
         {
@@ -171,8 +172,10 @@ public sealed class TestContext : IDisposable
             IsPreviousResident = isPreviousResident,
             Status = HousingRequestStatus.Locked,
             PaymentDueDate = paymentDueDate,
+            FeeAmount = feeAmount,
             IsPaid = isPaid,
-            PaidAt = isPaid ? Clock.GetUtcNow().UtcDateTime : null,
+            PaidAt = isPaid ? (paidAt ?? Clock.GetUtcNow().UtcDateTime) : null,
+            AmountPaid = isPaid ? (amountPaid ?? feeAmount) : null,
             ReminderSent = reminderSent,
             SubmittedAt = Clock.GetUtcNow().UtcDateTime,
             CreatedAt = Clock.GetUtcNow().UtcDateTime

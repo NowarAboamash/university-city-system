@@ -196,6 +196,18 @@ public class HousingRequestsController : ControllerBase
         return Ok(await _settingsService.GetAsync());
     }
 
+    // Financial roll-up for the payments dashboard. paidFrom/paidTo scope only the *InRange
+    // fields (for reconciliation against AuthService's wallet ledger over a period).
+    [Authorize(Roles = AdminRoles)]
+    [HttpGet("payment-summary")]
+    public async Task<ActionResult<PaymentSummaryDto>> GetPaymentSummary(
+        [FromQuery] int? housingCycleId,
+        [FromQuery] DateTime? paidFrom,
+        [FromQuery] DateTime? paidTo)
+    {
+        return Ok(await _requestService.GetPaymentSummaryAsync(housingCycleId, paidFrom, paidTo));
+    }
+
     [Authorize(Roles = AdminRoles)]
     [HttpPut("settings")]
     public async Task<ActionResult<HousingSettingsDto>> UpdateSettings(UpdateHousingSettingsDto dto)

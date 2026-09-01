@@ -285,6 +285,37 @@ public class HousingRequestRepository : Repository<HousingRequest>, IHousingRequ
                 && h.AdmissionDecision.Status == AdmissionDecisionStatus.Accepted)
             .ToListAsync();
     }
+
+    public async Task<PaymentSummaryData> GetPaymentSummaryAsync(int? housingCycleId, DateTime? paidFrom, DateTime? paidTo)
+    {
+        var accepted = _dbSet.Where(h =>
+            h.AdmissionDecision != null && h.AdmissionDecision.Status == AdmissionDecisionStatus.Accepted);
+
+        if (housingCycleId.HasValue)
+        {
+            accepted = accepted.Where(h => h.HousingCycleId == housingCycleId.Value);
+        }
+
+        var countAccepted = await accepted.CountAsync();
+        var countPaid = await accepted.CountAsync(h => h.IsPaid);
+        var totalRequired = await accepted.SumAsync(h => h.FeeAmount ?? 0m);
+        var totalPaid = await accepted.Where(h => h.IsPaid).SumAsync(h => h.AmountPaid ?? h.FeeAmount ?? 0m);
+
+        var inRange = accepted.Where(h => h.IsPaid);
+        if (paidFrom.HasValue)
+        {
+            inRange = inRange.Where(h => h.PaidAt >= paidFrom.Value);
+        }
+        if (paidTo.HasValue)
+        {
+            inRange = inRange.Where(h => h.PaidAt <= paidTo.Value);
+        }
+
+        var countPaidInRange = await inRange.CountAsync();
+        var paidInRange = await inRange.SumAsync(h => h.AmountPaid ?? h.FeeAmount ?? 0m);
+
+        return new PaymentSummaryData(countAccepted, countPaid, totalRequired, totalPaid, countPaidInRange, paidInRange);
+    }
 }
 
 public class HousingRequestDocumentRepository : Repository<HousingRequestDocument>, IHousingRequestDocumentRepository

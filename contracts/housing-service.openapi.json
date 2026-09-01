@@ -2421,6 +2421,61 @@
         }
       }
     },
+    "/api/housing-requests/payment-summary": {
+      "get": {
+        "tags": [
+          "HousingRequests"
+        ],
+        "parameters": [
+          {
+            "name": "housingCycleId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "paidFrom",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "paidTo",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentSummaryDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentSummaryDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentSummaryDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/buildings/{buildingId}/rooms/lookup": {
       "get": {
         "tags": [
@@ -3507,12 +3562,22 @@
             "format": "date-time",
             "nullable": true
           },
+          "feeAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
           "isPaid": {
             "type": "boolean"
           },
           "paidAt": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          },
+          "amountPaid": {
+            "type": "number",
+            "format": "double",
             "nullable": true
           }
         },
@@ -3609,6 +3674,52 @@
           "decisionReason": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PaymentSummaryDto": {
+        "type": "object",
+        "properties": {
+          "feeAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalRequired": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalPaid": {
+            "type": "number",
+            "format": "double"
+          },
+          "totalOutstanding": {
+            "type": "number",
+            "format": "double"
+          },
+          "countAccepted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "countPaid": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "countUnpaid": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "paidInRange": {
+            "type": "number",
+            "format": "double"
+          },
+          "countPaidInRange": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "asOf": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false

@@ -44,7 +44,13 @@ public class HousingRequestDto
 
     public DateTime? PaymentDueDate { get; set; }
 
+    /// <summary>Fee frozen at acceptance; null before the request is accepted.</summary>
+    public decimal? FeeAmount { get; set; }
+
     public bool IsPaid { get; set; }
 
     public DateTime? PaidAt { get; set; }
+
+    /// <summary>Amount actually charged on payment; null until paid.</summary>
+    public decimal? AmountPaid { get; set; }
 }

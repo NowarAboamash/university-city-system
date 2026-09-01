@@ -4,6 +4,14 @@ using HousingService.DTOs;
 
 namespace HousingService.Data.Repositories;
 
+public sealed record PaymentSummaryData(
+    int CountAccepted,
+    int CountPaid,
+    decimal TotalRequired,
+    decimal TotalPaid,
+    int CountPaidInRange,
+    decimal PaidInRange);
+
 public interface IRepository<TEntity> where TEntity : class
 {
     Task<TEntity?> GetByIdAsync(int id);
@@ -49,6 +57,10 @@ public interface IHousingRequestRepository : IRepository<HousingRequest>
     /// <summary>Accepted, unpaid requests whose payment reminder hasn't been sent yet and whose
     /// due date falls before <paramref name="dueDateCutoffExclusive"/>.</summary>
     Task<IEnumerable<HousingRequest>> GetDueForPaymentReminderAsync(DateTime dueDateCutoffExclusive);
+
+    /// <summary>DB-level financial aggregates over Accepted requests (optionally one cycle),
+    /// with a paid-date-range variant for ledger reconciliation.</summary>
+    Task<PaymentSummaryData> GetPaymentSummaryAsync(int? housingCycleId, DateTime? paidFrom, DateTime? paidTo);
 }
 
 public interface IHousingRequestDocumentRepository : IRepository<HousingRequestDocument>

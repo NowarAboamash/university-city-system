@@ -368,6 +368,7 @@ public class HousingRequestService : IHousingRequestService
         {
             var settings = await _settingsRepository.GetAsync();
             request.PaymentDueDate = now.AddDays(settings.PaymentDeadlineDays);
+            request.FeeAmount = settings.HousingFeeAmount;
             request.ReminderSent = false;
         }
 
@@ -437,7 +438,10 @@ public class HousingRequestService : IHousingRequestService
         }
 
         var settings = await _settingsRepository.GetAsync();
-        if (settings.HousingFeeAmount <= 0)
+        // Charge the fee frozen at acceptance, not whatever the setting is now. Fall back to the
+        // current setting only for rows accepted before fee-freezing existed.
+        var amountToCharge = request.FeeAmount ?? settings.HousingFeeAmount;
+        if (amountToCharge <= 0)
         {
             return Fail(PaymentOutcome.FeeNotConfigured, "لم يتم تحديد رسم السكن بعد. حاول لاحقاً.");
         }
@@ -447,7 +451,7 @@ public class HousingRequestService : IHousingRequestService
         {
             charge = await _walletClient.ChargeAsync(
                 request.StudentId,
-                settings.HousingFeeAmount,
+                amountToCharge,
                 $"housing-request-{request.Id}",
                 $"دفع رسوم طلب سكن رقم {request.Id}");
         }
@@ -474,6 +478,7 @@ public class HousingRequestService : IHousingRequestService
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         request.IsPaid = true;
         request.PaidAt = now;
+        request.AmountPaid = amountToCharge;
         request.UpdatedAt = now;
         _requestRepository.Update(request);
         await _requestRepository.SaveChangesAsync();
@@ -494,6 +499,26 @@ public class HousingRequestService : IHousingRequestService
 
     private static PayHousingRequestResultDto Fail(PaymentOutcome outcome, string message)
         => new() { Outcome = outcome, Message = message };
+
+    public async Task<PaymentSummaryDto> GetPaymentSummaryAsync(int? housingCycleId, DateTime? paidFrom, DateTime? paidTo)
+    {
+        var settings = await _settingsRepository.GetAsync();
+        var raw = await _requestRepository.GetPaymentSummaryAsync(housingCycleId, paidFrom, paidTo);
+
+        return new PaymentSummaryDto
+        {
+            FeeAmount = settings.HousingFeeAmount,
+            TotalRequired = raw.TotalRequired,
+            TotalPaid = raw.TotalPaid,
+            TotalOutstanding = raw.TotalRequired - raw.TotalPaid,
+            CountAccepted = raw.CountAccepted,
+            CountPaid = raw.CountPaid,
+            CountUnpaid = raw.CountAccepted - raw.CountPaid,
+            PaidInRange = raw.PaidInRange,
+            CountPaidInRange = raw.CountPaidInRange,
+            AsOf = _timeProvider.GetUtcNow().UtcDateTime
+        };
+    }
 
     public async Task<bool?> DeleteAsync(int id, string performedBy, bool performedByAdmin)
     {
@@ -656,8 +681,10 @@ public class HousingRequestService : IHousingRequestService
             SubmittedAt = request.SubmittedAt,
             LockedAt = request.LockedAt,
             PaymentDueDate = request.PaymentDueDate,
+            FeeAmount = request.FeeAmount,
             IsPaid = request.IsPaid,
-            PaidAt = request.PaidAt
+            PaidAt = request.PaidAt,
+            AmountPaid = request.AmountPaid
         };
     }
 }
