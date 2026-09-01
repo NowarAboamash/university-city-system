@@ -45,6 +45,8 @@ academicLevel, gender, isPaid, specialNeeds, grouped, submitted-date range).
 `frontend-previous-residence-picker.md` covers the student-safe `GET /api/buildings/lookup`
 (now with `floorsCount`) and `GET /api/buildings/{buildingId}/rooms/lookup` used to pick a
 previous building/floor/room on a housing request.
+`frontend-payments-dashboard.md` covers `GET /api/housing-requests/payment-summary` (totals /
+counts, cycle + paid-date filters) and how it reconciles against AuthService's wallet ledger.
 
 ### Images are Cloudinary URLs, not local paths
 
