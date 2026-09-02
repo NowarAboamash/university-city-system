@@ -8,6 +8,14 @@ public interface IAllocationService
 
     Task<AllocationDto> CreateAsync(CreateAllocationDto dto);
 
+    /// <summary>Bin-packs every Accepted, not-yet-allocated request and group of the current open
+    /// cycle into the available rooms, maximising how many students get a bed. Groups are placed
+    /// first (largest first, tightest-fitting room) since they need contiguous space; individuals
+    /// then fill the remaining gaps. Payment is not a precondition. With <c>DryRun = true</c> it
+    /// only returns the proposed plan; otherwise every placement is re-validated and committed via
+    /// the same path as <see cref="CreateAsync"/>, and any that fail the re-check are reported as skipped.</summary>
+    Task<AutoAssignResultDto> AutoAssignAsync(AutoAssignRequestDto dto);
+
     Task<AllocationDto?> GetByIdAsync(int id);
 
     Task<PagedResult<AllocationDto>> GetAllAsync(int? buildingId, int? roomId, PaginationParams pagination);

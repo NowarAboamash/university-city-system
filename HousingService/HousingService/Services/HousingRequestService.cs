@@ -332,6 +332,11 @@ public class HousingRequestService : IHousingRequestService
         }
 
         request.AdmissionDecision.Status = dto.Status;
+        // RejectionReason only carries meaning on a Rejected decision — default a bare Rejected
+        // to AdminReview, and clear it if the decision is being moved off Rejected.
+        request.AdmissionDecision.RejectionReason = dto.Status == AdmissionDecisionStatus.Rejected
+            ? (dto.RejectionReason ?? RejectionReason.AdminReview)
+            : null;
         request.AdmissionDecision.DecisionReason = dto.DecisionReason?.Trim();
         request.AdmissionDecision.DecisionDate = now;
         request.AdmissionDecision.ReviewedBy = reviewedBy;
@@ -404,6 +409,8 @@ public class HousingRequestService : IHousingRequestService
         var (title, body) = dto.Status switch
         {
             AdmissionDecisionStatus.Accepted => ("تم قبول طلب التسكين", "تهانينا! تم قبول طلب التسكين الخاص بك."),
+            AdmissionDecisionStatus.Rejected when request.AdmissionDecision.RejectionReason == RejectionReason.NonPayment
+                => ("تم إلغاء تخصيص السكن", "لم يتم دفع رسوم السكن خلال المهلة المحددة، وتم إلغاء طلب التسكين وأي غرفة كانت مخصصة لك. يمكنك التقديم من جديد في دورة تسكين قادمة."),
             AdmissionDecisionStatus.Rejected => ("تم رفض طلب التسكين", "نأسف، تم رفض طلب التسكين الخاص بك."),
             AdmissionDecisionStatus.WaitingList => ("طلب التسكين على قائمة الانتظار", "تم وضع طلب التسكين الخاص بك على قائمة الانتظار."),
             _ => ("تحديث على طلب التسكين", "تم تحديث حالة طلب التسكين الخاص بك.")
@@ -675,6 +682,7 @@ public class HousingRequestService : IHousingRequestService
             {
                 Id = request.AdmissionDecision.Id,
                 Status = request.AdmissionDecision.Status,
+                RejectionReason = request.AdmissionDecision.RejectionReason,
                 DecisionReason = request.AdmissionDecision.DecisionReason,
                 DecisionDate = request.AdmissionDecision.DecisionDate,
                 ReviewedBy = request.AdmissionDecision.ReviewedBy

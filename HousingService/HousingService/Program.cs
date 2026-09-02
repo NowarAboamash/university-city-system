@@ -42,6 +42,7 @@ builder.Services.AddScoped<IHousingSettingsRepository, HousingSettingsRepository
 builder.Services.AddScoped<IHousingSettingsService, HousingSettingsService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IPaymentReminderService, PaymentReminderService>();
+builder.Services.AddScoped<IUnpaidEvictionService, UnpaidEvictionService>();
 builder.Services.AddHostedService<PaymentReminderJob>();
 builder.Services.AddCloudinaryImageUploader();
 builder.Services.AddHousingWalletClient(builder.Configuration);

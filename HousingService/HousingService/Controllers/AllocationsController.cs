@@ -66,6 +66,22 @@ public class AllocationsController : ControllerBase
         }
     }
 
+    // Bulk places every Accepted, not-yet-allocated request/group of the current open cycle.
+    // Call with { "dryRun": true } first to preview the plan, then { "dryRun": false } to commit.
+    [Authorize(Roles = AdminRoles)]
+    [HttpPost("auto-assign")]
+    public async Task<ActionResult<AutoAssignResultDto>> AutoAssign(AutoAssignRequestDto dto)
+    {
+        try
+        {
+            return Ok(await _allocationService.AutoAssignAsync(dto));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [Authorize(Roles = AdminRoles)]
     [HttpGet("students/{studentId}/history")]
     public async Task<ActionResult<IReadOnlyList<AllocationDto>>> GetStudentHistory(string studentId)

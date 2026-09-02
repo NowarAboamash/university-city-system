@@ -12,6 +12,9 @@ public class AdmissionDecision
     public int Id { get; set; }
     public int HousingRequestId { get; set; }
     public AdmissionDecisionStatus Status { get; set; }
+    /// <summary>Only meaningful when <see cref="Status"/> is Rejected; null otherwise. Distinguishes
+    /// a manual review rejection from an automatic non-payment eviction.</summary>
+    public RejectionReason? RejectionReason { get; set; }
     public string? DecisionReason { get; set; }
     public DateTime DecisionDate { get; set; }
     public string? ReviewedBy { get; set; } // Admin ID from AuthService

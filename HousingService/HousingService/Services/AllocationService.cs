@@ -92,8 +92,8 @@ public class AllocationService : IAllocationService
             throw new ArgumentException("This room is not available for allocation.");
         }
 
-        var remaining = room.Building.StandardRoomCapacity - GetCurrentOccupancy(room);
-        if (remaining < neededCapacity)
+        var occupancyBefore = GetCurrentOccupancy(room);
+        if (room.Building.StandardRoomCapacity - occupancyBefore < neededCapacity)
         {
             throw new ArgumentException("This room does not have enough remaining capacity.");
         }
@@ -111,7 +111,9 @@ public class AllocationService : IAllocationService
 
         await _allocationRepository.AddAsync(allocation);
 
-        var newOccupancy = GetCurrentOccupancy(room) + neededCapacity;
+        // Compute from the occupancy captured *before* AddAsync — EF relationship fixup can add
+        // the new row to room.Allocations immediately, so re-counting here would double-count it.
+        var newOccupancy = occupancyBefore + neededCapacity;
         room.Status = newOccupancy >= room.Building.StandardRoomCapacity ? RoomStatus.Full : RoomStatus.Occupied;
         room.UpdatedAt = now;
         _roomRepository.Update(room);
@@ -138,6 +140,186 @@ public class AllocationService : IAllocationService
             $"تم تخصيص غرفة {room.RoomNumber} في مبنى {room.Building.Name} لك.");
 
         return MapToDto(allocation, room, occupantStudentIds);
+    }
+
+    public async Task<AutoAssignResultDto> AutoAssignAsync(AutoAssignRequestDto dto)
+    {
+        var cycle = await _cycleRepository.GetOpenAsync();
+        if (cycle is null)
+        {
+            throw new ArgumentException("No housing cycle is currently open.");
+        }
+
+        var result = new AutoAssignResultDto { DryRun = dto.DryRun };
+
+        // --- Build the target list ------------------------------------------------
+        // A "target" is one thing that needs a single room: an individual (1 seat) or a
+        // whole group (member-count seats, always kept together in one room).
+        var targets = new List<AutoAssignTarget>();
+
+        var individuals = await _requestRepository.GetAcceptedUngroupedForCycleAsync(cycle.Id);
+        foreach (var request in individuals)
+        {
+            if (request.Allocations.Any(a => a.VacatedAt is null))
+            {
+                continue; // already housed
+            }
+
+            targets.Add(new AutoAssignTarget
+            {
+                IsGroup = false,
+                RequestId = request.Id,
+                Size = 1,
+                Gender = request.Gender,
+                StudentIds = [request.StudentId],
+                AcceptedAt = request.AdmissionDecision!.DecisionDate
+            });
+        }
+
+        var groups = await _groupRepository.GetForCycleWithMembersDecisionsAndAllocationAsync(cycle.Id);
+        foreach (var group in groups)
+        {
+            if (group.Allocation is not null || group.Members.Count == 0)
+            {
+                // One Allocation row per group ever (vacated or not) — mirrors CreateAsync's guard;
+                // an empty group has nothing to place.
+                continue;
+            }
+
+            if (group.Members.Any(m => m.AdmissionDecision?.Status != AdmissionDecisionStatus.Accepted))
+            {
+                result.Skipped.Add(new AutoAssignSkippedDto
+                {
+                    TargetType = "group",
+                    TargetId = group.Id,
+                    Size = group.Members.Count,
+                    Reason = "Not all group members have been accepted yet."
+                });
+                continue;
+            }
+
+            var leader = group.Members.FirstOrDefault(m => m.StudentId == group.LeaderId) ?? group.Members.First();
+            targets.Add(new AutoAssignTarget
+            {
+                IsGroup = true,
+                GroupId = group.Id,
+                Size = group.Members.Count,
+                Gender = leader.Gender,
+                StudentIds = group.Members.Select(m => m.StudentId).ToList(),
+                // The group only becomes fully eligible once its last member is accepted.
+                AcceptedAt = group.Members.Max(m => m.AdmissionDecision!.DecisionDate)
+            });
+        }
+
+        // --- Room pool: everything that currently has at least one free bed --------
+        var rooms = (await _roomRepository.GetAllWithOccupantsAsync())
+            .Where(r => r.Status is RoomStatus.Available or RoomStatus.Occupied)
+            .Select(r => new AutoAssignRoom(r, r.Building.StandardRoomCapacity - GetCurrentOccupancy(r)))
+            .Where(r => r.Remaining > 0)
+            .ToList();
+
+        // --- Pack: groups first (largest first, then oldest-accepted), then individuals ----
+        // Best-Fit Decreasing — each target goes into the tightest room that still fits it,
+        // leaving the roomier rooms available for whatever bigger target comes next.
+        var ordered = targets
+            .OrderByDescending(t => t.IsGroup)
+            .ThenByDescending(t => t.Size)
+            .ThenBy(t => t.AcceptedAt)
+            .ThenBy(t => t.GroupId ?? t.RequestId ?? 0)
+            .ToList();
+
+        foreach (var target in ordered)
+        {
+            var room = rooms
+                .Where(r => IsGenderMatch(r.Room.Building.Gender, target.Gender) && r.Remaining >= target.Size)
+                .OrderBy(r => r.Remaining)
+                .ThenBy(r => r.Room.Building.Name)
+                .ThenBy(r => r.Room.Floor)
+                .ThenBy(r => r.Room.RoomNumber)
+                .FirstOrDefault();
+
+            if (room is null)
+            {
+                result.Skipped.Add(new AutoAssignSkippedDto
+                {
+                    TargetType = target.IsGroup ? "group" : "individual",
+                    TargetId = target.GroupId ?? target.RequestId!.Value,
+                    Size = target.Size,
+                    Reason = target.IsGroup
+                        ? $"No available room has {target.Size} free beds together for the group."
+                        : "No available room has a free bed."
+                });
+                continue;
+            }
+
+            room.Remaining -= target.Size;
+            result.Assignments.Add(new AutoAssignmentDto
+            {
+                HousingRequestId = target.RequestId,
+                HousingGroupId = target.GroupId,
+                Size = target.Size,
+                RoomId = room.Room.Id,
+                RoomNumber = room.Room.RoomNumber,
+                BuildingId = room.Room.BuildingId,
+                BuildingName = room.Room.Building.Name,
+                StudentIds = target.StudentIds
+            });
+        }
+
+        // --- Commit (unless this is a dry run) -----------------------------------
+        // Re-run every rule per placement via CreateAsync (another admin may have taken a room
+        // between planning and now); anything that fails the re-check is reported, not fatal.
+        if (!dto.DryRun && result.Assignments.Count > 0)
+        {
+            var committed = new List<AutoAssignmentDto>();
+            foreach (var assignment in result.Assignments)
+            {
+                try
+                {
+                    await CreateAsync(new CreateAllocationDto
+                    {
+                        HousingRequestId = assignment.HousingRequestId,
+                        HousingGroupId = assignment.HousingGroupId,
+                        RoomId = assignment.RoomId
+                    });
+                    committed.Add(assignment);
+                }
+                catch (ArgumentException ex)
+                {
+                    result.Skipped.Add(new AutoAssignSkippedDto
+                    {
+                        TargetType = assignment.HousingGroupId is not null ? "group" : "individual",
+                        TargetId = assignment.HousingGroupId ?? assignment.HousingRequestId!.Value,
+                        Size = assignment.Size,
+                        Reason = $"Rejected at commit: {ex.Message}"
+                    });
+                }
+            }
+
+            result.Assignments = committed;
+        }
+
+        result.PlacedTargets = result.Assignments.Count;
+        result.HousedStudents = result.Assignments.Sum(a => a.Size);
+        result.SkippedTargets = result.Skipped.Count;
+        return result;
+    }
+
+    private sealed class AutoAssignTarget
+    {
+        public bool IsGroup { get; init; }
+        public int? RequestId { get; init; }
+        public int? GroupId { get; init; }
+        public int Size { get; init; }
+        public Gender Gender { get; init; }
+        public List<string> StudentIds { get; init; } = [];
+        public DateTime AcceptedAt { get; init; }
+    }
+
+    private sealed class AutoAssignRoom(Room room, int remaining)
+    {
+        public Room Room { get; } = room;
+        public int Remaining { get; set; } = remaining;
     }
 
     public async Task<AllocationDto?> TransferAsync(int allocationId, TransferAllocationDto dto)

@@ -42,6 +42,7 @@ public sealed class TestContext : IDisposable
     public IBuildingEvacuationService EvacuationService { get; }
     public IHousingSettingsService SettingsService { get; }
     public IPaymentReminderService PaymentReminderService { get; }
+    public IUnpaidEvictionService UnpaidEvictionService { get; }
     public IDashboardService DashboardService { get; }
 
     public TestContext(DateTimeOffset? now = null)
@@ -84,12 +85,22 @@ public sealed class TestContext : IDisposable
         EvacuationService = new BuildingEvacuationService(BuildingRepository, AllocationRepository, RoomRepository, Notifications, Clock);
         SettingsService = new HousingSettingsService(SettingsRepository, Clock);
         PaymentReminderService = new PaymentReminderService(RequestRepository, SettingsRepository, Notifications, Clock);
+        UnpaidEvictionService = new UnpaidEvictionService(RequestRepository, RequestService, Clock);
         DashboardService = new DashboardService(Db, userLookup, Clock);
     }
 
     // --- Seed helpers -----------------------------------------------------
     // Use high ids (>= 1000) to stay clear of HousingDbContext's own HasData seed
     // (20 buildings / 5280 rooms with ids 1..~5280) that always applies regardless of provider.
+
+    /// <summary>Wipes HousingDbContext's built-in 20-building / 5280-room HasData seed so a test
+    /// can reason about a room pool it fully controls (needed for the auto-assign packing tests).</summary>
+    public void ClearSeededInventory()
+    {
+        Db.Rooms.RemoveRange(Db.Rooms.ToList());
+        Db.Buildings.RemoveRange(Db.Buildings.ToList());
+        Db.SaveChanges();
+    }
 
     public Building AddBuilding(int id, Gender gender, int capacity = 4, BuildingStatus status = BuildingStatus.Active, int? floorsCount = null)
     {

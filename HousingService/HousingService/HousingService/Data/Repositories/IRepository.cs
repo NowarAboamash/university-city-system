@@ -58,6 +58,16 @@ public interface IHousingRequestRepository : IRepository<HousingRequest>
     /// due date falls before <paramref name="dueDateCutoffExclusive"/>.</summary>
     Task<IEnumerable<HousingRequest>> GetDueForPaymentReminderAsync(DateTime dueDateCutoffExclusive);
 
+    /// <summary>Accepted, still-unpaid requests whose payment due date has fully lapsed (strictly
+    /// before <paramref name="asOfDateExclusive"/>, which the caller passes as today's date so the
+    /// deadline day itself is not counted as overdue). Feeds the automatic non-payment eviction.</summary>
+    Task<IEnumerable<HousingRequest>> GetOverdueUnpaidAcceptedAsync(DateTime asOfDateExclusive);
+
+    /// <summary>Every Accepted, ungrouped request in the cycle, with its decision and allocations
+    /// loaded — the raw individual candidate pool for auto-assignment (the caller filters out
+    /// those that already hold an active allocation).</summary>
+    Task<IEnumerable<HousingRequest>> GetAcceptedUngroupedForCycleAsync(int housingCycleId);
+
     /// <summary>DB-level financial aggregates over Accepted requests (optionally one cycle),
     /// with a paid-date-range variant for ledger reconciliation.</summary>
     Task<PaymentSummaryData> GetPaymentSummaryAsync(int? housingCycleId, DateTime? paidFrom, DateTime? paidTo);
@@ -91,6 +101,10 @@ public interface IHousingGroupRepository : IRepository<HousingGroup>
     Task<HousingGroup?> GetByIdWithDetailsAsync(int id);
     Task<(IEnumerable<HousingGroup> Items, int TotalCount)> GetAllWithDetailsAsync(int? housingCycleId, PaginationParams pagination);
     Task<HousingGroup?> GetByIdWithMembersAndDecisionsAsync(int id);
+
+    /// <summary>Every group in the cycle with members (and each member's admission decision) plus
+    /// its allocation loaded — the raw group candidate pool for auto-assignment.</summary>
+    Task<IEnumerable<HousingGroup>> GetForCycleWithMembersDecisionsAndAllocationAsync(int housingCycleId);
 }
 
 public interface IGroupInvitationRepository : IRepository<GroupInvitation>

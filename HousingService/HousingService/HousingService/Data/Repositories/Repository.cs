@@ -286,6 +286,30 @@ public class HousingRequestRepository : Repository<HousingRequest>, IHousingRequ
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<HousingRequest>> GetOverdueUnpaidAcceptedAsync(DateTime asOfDateExclusive)
+    {
+        return await _dbSet
+            .Include(h => h.AdmissionDecision)
+            .Where(h => !h.IsPaid
+                && h.PaymentDueDate != null
+                && h.PaymentDueDate < asOfDateExclusive
+                && h.AdmissionDecision != null
+                && h.AdmissionDecision.Status == AdmissionDecisionStatus.Accepted)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<HousingRequest>> GetAcceptedUngroupedForCycleAsync(int housingCycleId)
+    {
+        return await _dbSet
+            .Include(h => h.AdmissionDecision)
+            .Include(h => h.Allocations)
+            .Where(h => h.HousingCycleId == housingCycleId
+                && h.HousingGroupId == null
+                && h.AdmissionDecision != null
+                && h.AdmissionDecision.Status == AdmissionDecisionStatus.Accepted)
+            .ToListAsync();
+    }
+
     public async Task<PaymentSummaryData> GetPaymentSummaryAsync(int? housingCycleId, DateTime? paidFrom, DateTime? paidTo)
     {
         var accepted = _dbSet.Where(h =>
@@ -451,6 +475,15 @@ public class HousingGroupRepository : Repository<HousingGroup>, IHousingGroupRep
             .Include(g => g.Members).ThenInclude(m => m.AdmissionDecision)
             .Include(g => g.Allocation)
             .FirstOrDefaultAsync(g => g.Id == id);
+    }
+
+    public async Task<IEnumerable<HousingGroup>> GetForCycleWithMembersDecisionsAndAllocationAsync(int housingCycleId)
+    {
+        return await _dbSet
+            .Include(g => g.Members).ThenInclude(m => m.AdmissionDecision)
+            .Include(g => g.Allocation)
+            .Where(g => g.HousingCycleId == housingCycleId)
+            .ToListAsync();
     }
 }
 

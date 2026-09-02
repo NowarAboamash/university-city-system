@@ -51,8 +51,10 @@ Charges `housingFeeAmount` from the student's auth-service wallet
 | Insufficient wallet balance | `402` | auth-service returned 402; request stays unpaid. |
 | Wallet gateway error | `502` | auth-service unreachable / 5xx / misconfig; request stays unpaid. |
 
-Paying is still allowed after `PaymentDueDate` has passed — the deadline only drives the
-reminder; freeing an unpaid spot is a separate manual admin action.
+Paying is allowed right up until the deadline day passes. Once the daily job evicts an
+overdue-unpaid request (see below), its decision becomes `Rejected` and `/pay` then returns
+`400` (not accepted) — there is no late payment and no reinstatement; the student reapplies
+in a future cycle.
 
 Concurrent `/pay` calls for the same request are safe: auth-service is idempotent on
 `(userId, reference)`, so a duplicate charge with `housing-request-{id}` returns 200 with the
@@ -62,17 +64,48 @@ Config: reuses `AuthService:BaseUrl` + `AuthService:InternalApiKey`
 (`AUTH_SERVICE_BASE_URL` / `AUTH_SERVICE_INTERNAL_API_KEY`) — the same internal key already
 used for user lookup. No new settings.
 
-## Automatic reminder
+## Daily job — `PaymentReminderJob`
 
-`PaymentReminderJob` (a `BackgroundService`) runs `IPaymentReminderService.RunAsync()` every
-24h. It notifies every request that is **Accepted, unpaid, not yet reminded**, and whose
-`PaymentDueDate` is within `ReminderDaysBefore` days (overdue ones included, so a missed run
-still sends late rather than skipping), then sets `ReminderSent = true`.
+A single `BackgroundService` runs every 24h and does two disjoint passes:
 
-Notification `data`: `{ "type": "housing_payment_reminder", "relatedId": <requestId> }`.
-On a successful payment: `{ "type": "housing_payment_completed", "relatedId": <requestId> }`.
+**1. Eviction — `IUnpaidEvictionService.RunAsync()` (runs first).**
+Every request that is **Accepted, still unpaid**, and whose `PaymentDueDate` day has *fully
+passed* (`PaymentDueDate < today` — the 15th day itself still belongs to the student, and
+there is **no grace period**) is evicted:
+
+- its `AdmissionDecision` is set to `Rejected` with `RejectionReason = NonPayment`;
+- that cascades through the normal decision-reversal path — an individual's active
+  `Allocation` is vacated (room freed), a grouped member is dropped from the group (roommates
+  stay housed, the room re-synced), the last member of a group also vacates its allocation;
+- the student gets one notification worded for non-payment.
+
+Eviction is final for the cycle: no reinstatement, no late payment. To get housing again the
+student applies afresh in a future cycle.
+
+**2. Reminder — `IPaymentReminderService.RunAsync()`.**
+Notifies every request that is **Accepted, unpaid, not yet reminded**, and whose
+`PaymentDueDate` is within `ReminderDaysBefore` days (overdue-but-not-yet-evicted included),
+then sets `ReminderSent = true`.
+
+Notification `data`:
+`{ "type": "housing_payment_reminder", "relatedId": <requestId> }` (reminder),
+`{ "type": "housing_payment_completed", "relatedId": <requestId> }` (paid).
+Eviction reuses the decision-changed notification (no dedicated `data` payload).
 
 > Note: if housing-service is deployed on a free host that sleeps while idle, the in-process
-> job may miss its tick. `RunAsync` is deliberately isolated in `IPaymentReminderService` so a
-> thin authenticated "run now" endpoint + an external cron can be added later without
-> reworking the logic.
+> job may miss its tick. Both passes are isolated behind their own interfaces so a thin
+> authenticated "run now" endpoint + an external cron can be added later without reworking the
+> logic.
+
+## `RejectionReason`
+
+`AdmissionDecision` carries a nullable `RejectionReason` (exposed on `AdmissionDecisionDto` /
+`HousingRequestDto.decision`), meaningful only when `status == Rejected`:
+
+| Value | Meaning |
+|---|---|
+| `AdminReview` (0) | Rejected by an admin during application review (the default for any bare rejection). |
+| `NonPayment` (1) | Auto-evicted by the daily job for not paying within the deadline. |
+
+`POST /api/housing-requests/{id}/decision` accepts an optional `rejectionReason`; omitting it
+on a `Rejected` decision defaults to `AdminReview`. Moving a decision off `Rejected` clears it.

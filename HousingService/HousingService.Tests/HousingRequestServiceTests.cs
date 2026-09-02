@@ -24,6 +24,33 @@ public class HousingRequestServiceTests
     }
 
     [Fact]
+    public async Task MakeDecisionAsync_BareReject_DefaultsRejectionReasonToAdminReview()
+    {
+        using var ctx = new TestContext();
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var request = ctx.AddRequest(1000, "s1", cycle.Id, gov.Id, Gender.Female);
+
+        await ctx.RequestService.MakeDecisionAsync(request.Id, new MakeAdmissionDecisionDto { Status = AdmissionDecisionStatus.Rejected }, "admin-1");
+
+        Assert.Equal(RejectionReason.AdminReview, ctx.Db.AdmissionDecisions.Single(d => d.HousingRequestId == request.Id).RejectionReason);
+    }
+
+    [Fact]
+    public async Task MakeDecisionAsync_MovingOffRejected_ClearsRejectionReason()
+    {
+        using var ctx = new TestContext();
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var request = ctx.AddRequest(1000, "s1", cycle.Id, gov.Id, Gender.Female);
+
+        await ctx.RequestService.MakeDecisionAsync(request.Id, new MakeAdmissionDecisionDto { Status = AdmissionDecisionStatus.Rejected, RejectionReason = RejectionReason.NonPayment }, "admin-1");
+        await ctx.RequestService.MakeDecisionAsync(request.Id, new MakeAdmissionDecisionDto { Status = AdmissionDecisionStatus.Accepted }, "admin-1");
+
+        Assert.Null(ctx.Db.AdmissionDecisions.Single(d => d.HousingRequestId == request.Id).RejectionReason);
+    }
+
+    [Fact]
     public async Task MakeDecisionAsync_GroupedMemberReversedToWaitingList_RemovesFromGroup()
     {
         using var ctx = new TestContext();
