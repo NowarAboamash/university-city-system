@@ -425,6 +425,45 @@ public class AllocationServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_Group_AllowedAgain_AfterPriorAllocationVacated()
+    {
+        using var ctx = new TestContext();
+        var building = ctx.AddBuilding(1000, Gender.Female, capacity: 4);
+        var oldRoom = ctx.AddRoom(1000, building.Id, "101");
+        var newRoom = ctx.AddRoom(1001, building.Id, "102");
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var group = ctx.AddGroup(1000, "leader", cycle.Id, HousingGroupStatus.Allocated);
+        ctx.AddRequest(1000, "leader", cycle.Id, gov.Id, Gender.Female, housingGroupId: group.Id, decisionStatus: AdmissionDecisionStatus.Accepted);
+        ctx.AddRequest(1001, "mate", cycle.Id, gov.Id, Gender.Female, housingGroupId: group.Id, decisionStatus: AdmissionDecisionStatus.Accepted);
+        ctx.AddAllocation(1000, oldRoom.Id, housingGroupId: group.Id, vacatedAt: ctx.Clock.GetUtcNow().UtcDateTime);
+
+        var result = await ctx.AllocationService.CreateAsync(new CreateAllocationDto { HousingGroupId = group.Id, RoomId = newRoom.Id });
+
+        Assert.Equal(newRoom.Id, result.RoomId);
+        Assert.Equal(2, ctx.Db.Allocations.Count(a => a.HousingGroupId == group.Id));
+        Assert.Single(ctx.Db.Allocations.Where(a => a.HousingGroupId == group.Id && a.VacatedAt == null));
+    }
+
+    [Fact]
+    public async Task CreateAsync_Group_StillRejected_WhenAllocationIsActive()
+    {
+        using var ctx = new TestContext();
+        var building = ctx.AddBuilding(1000, Gender.Female, capacity: 4);
+        var room = ctx.AddRoom(1000, building.Id, "101");
+        var newRoom = ctx.AddRoom(1001, building.Id, "102");
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var group = ctx.AddGroup(1000, "leader", cycle.Id, HousingGroupStatus.Allocated);
+        ctx.AddRequest(1000, "leader", cycle.Id, gov.Id, Gender.Female, housingGroupId: group.Id, decisionStatus: AdmissionDecisionStatus.Accepted);
+        ctx.AddAllocation(1000, room.Id, housingGroupId: group.Id); // active
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            ctx.AllocationService.CreateAsync(new CreateAllocationDto { HousingGroupId = group.Id, RoomId = newRoom.Id }));
+        Assert.Contains("already has an allocation", ex.Message);
+    }
+
+    [Fact]
     public async Task GetCandidateRoomsAsync_NotAcceptedTarget_StillThrows()
     {
         using var ctx = new TestContext();

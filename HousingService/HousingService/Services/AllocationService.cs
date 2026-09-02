@@ -179,10 +179,10 @@ public class AllocationService : IAllocationService
         var groups = await _groupRepository.GetForCycleWithMembersDecisionsAndAllocationAsync(cycle.Id);
         foreach (var group in groups)
         {
-            if (group.Allocation is not null || group.Members.Count == 0)
+            if (group.Allocations.Any(a => a.VacatedAt is null) || group.Members.Count == 0)
             {
-                // One Allocation row per group ever (vacated or not) — mirrors CreateAsync's guard;
-                // an empty group has nothing to place.
+                // Skip only a group that's *actively* housed (or empty). A group whose earlier
+                // allocation was vacated is a valid re-housing target — same as an individual.
                 continue;
             }
 
@@ -398,9 +398,10 @@ public class AllocationService : IAllocationService
         var now = _timeProvider.GetUtcNow().UtcDateTime;
 
         // Updated in place (unlike building evacuation, which stamps VacatedAt to preserve
-        // history) — a group's Allocation row is constrained to exactly one per group by a
-        // unique index on HousingGroupId, so vacate-and-recreate isn't an option here; an
-        // admin-corrected room assignment isn't a residency-ending event anyway.
+        // history) — a group may have only one *active* Allocation row (filtered unique index
+        // on HousingGroupId WHERE VacatedAt IS NULL), so vacate-and-recreate within one call
+        // isn't an option here; an admin-corrected room assignment isn't a residency-ending
+        // event anyway.
         allocation.RoomId = dto.NewRoomId;
         allocation.UpdatedAt = now;
         _allocationRepository.Update(allocation);
@@ -724,7 +725,7 @@ public class AllocationService : IAllocationService
             throw new ArgumentException("Housing group was not found.");
         }
 
-        if (!allowExistingAllocation && group.Allocation is not null)
+        if (!allowExistingAllocation && group.Allocations.Any(a => a.VacatedAt is null))
         {
             throw new ArgumentException("This group already has an allocation.");
         }

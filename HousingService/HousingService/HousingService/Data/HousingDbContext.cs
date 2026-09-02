@@ -119,9 +119,9 @@ public class HousingDbContext : DbContext
                 .WithOne(i => i.HousingGroup)
                 .HasForeignKey(i => i.HousingGroupId)
                 .OnDelete(DeleteBehavior.Cascade);
-            entity.HasOne(e => e.Allocation)
+            entity.HasMany(e => e.Allocations)
                 .WithOne(a => a.HousingGroup)
-                .HasForeignKey<Allocation>(a => a.HousingGroupId)
+                .HasForeignKey(a => a.HousingGroupId)
                 .OnDelete(DeleteBehavior.SetNull);
             entity.HasOne(e => e.HousingCycle)
                 .WithMany()
@@ -168,7 +168,11 @@ public class HousingDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.HousingRequestId);
-            entity.HasIndex(e => e.HousingGroupId);
+            // A group may own many Allocation rows over time (vacated history), but only one
+            // may be active at once — filtered so the constraint ignores vacated rows.
+            entity.HasIndex(e => e.HousingGroupId)
+                .IsUnique()
+                .HasFilter("[HousingGroupId] IS NOT NULL AND [VacatedAt] IS NULL");
             entity.HasIndex(e => e.RoomId);
             entity.HasIndex(e => e.AllocatedAt);
             entity.HasIndex(e => e.VacatedAt);

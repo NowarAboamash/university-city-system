@@ -198,6 +198,53 @@ public class AutoAssignTests
     }
 
     [Fact]
+    public async Task Places_Group_WhosePriorAllocationWasVacated()
+    {
+        using var ctx = NewContext();
+        var building = ctx.AddBuilding(1000, Gender.Male, capacity: 4);
+        var oldRoom = ctx.AddRoom(1000, building.Id, "101");
+        var newRoom = ctx.AddRoom(1001, building.Id, "102");
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+
+        var group = ctx.AddGroup(1000, "leader", cycle.Id, HousingGroupStatus.Allocated);
+        ctx.AddRequest(1000, "leader", cycle.Id, gov.Id, Gender.Male, housingGroupId: group.Id, decisionStatus: AdmissionDecisionStatus.Accepted);
+        ctx.AddRequest(1001, "mate", cycle.Id, gov.Id, Gender.Male, housingGroupId: group.Id, decisionStatus: AdmissionDecisionStatus.Accepted);
+        // The group was housed once and then evacuated — the row stays as history.
+        var vacatedRow = ctx.AddAllocation(1000, oldRoom.Id, housingGroupId: group.Id, vacatedAt: ctx.Clock.GetUtcNow().UtcDateTime);
+
+        var result = await ctx.AllocationService.AutoAssignAsync(new AutoAssignRequestDto { DryRun = false });
+
+        Assert.Equal(1, result.PlacedTargets);
+        Assert.Equal(2, result.HousedStudents);
+        Assert.Empty(result.Skipped);
+
+        var groupRows = ctx.Db.Allocations.Where(a => a.HousingGroupId == group.Id).ToList();
+        Assert.Equal(2, groupRows.Count); // the vacated history row + a fresh active one
+        var active = Assert.Single(groupRows, a => a.VacatedAt == null);
+        Assert.NotEqual(vacatedRow.Id, active.Id);
+        Assert.Contains(active.RoomId, new[] { oldRoom.Id, newRoom.Id });
+    }
+
+    [Fact]
+    public async Task Skips_Group_ThatIsActivelyHoused()
+    {
+        using var ctx = NewContext();
+        var building = ctx.AddBuilding(1000, Gender.Male, capacity: 4);
+        var room = ctx.AddRoom(1000, building.Id, "101");
+        var cycle = ctx.AddOpenCycle(1000);
+        var gov = ctx.AddGovernorate(1000);
+        var group = ctx.AddGroup(1000, "leader", cycle.Id, HousingGroupStatus.Allocated);
+        ctx.AddRequest(1000, "leader", cycle.Id, gov.Id, Gender.Male, housingGroupId: group.Id, decisionStatus: AdmissionDecisionStatus.Accepted);
+        ctx.AddAllocation(1000, room.Id, housingGroupId: group.Id); // active
+
+        var result = await ctx.AllocationService.AutoAssignAsync(new AutoAssignRequestDto { DryRun = true });
+
+        Assert.Empty(result.Assignments);
+        Assert.Empty(result.Skipped);
+    }
+
+    [Fact]
     public async Task Throws_WhenNoOpenCycle()
     {
         using var ctx = NewContext();

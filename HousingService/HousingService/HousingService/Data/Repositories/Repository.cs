@@ -473,7 +473,7 @@ public class HousingGroupRepository : Repository<HousingGroup>, IHousingGroupRep
     {
         return await _dbSet
             .Include(g => g.Members).ThenInclude(m => m.AdmissionDecision)
-            .Include(g => g.Allocation)
+            .Include(g => g.Allocations)
             .FirstOrDefaultAsync(g => g.Id == id);
     }
 
@@ -481,7 +481,7 @@ public class HousingGroupRepository : Repository<HousingGroup>, IHousingGroupRep
     {
         return await _dbSet
             .Include(g => g.Members).ThenInclude(m => m.AdmissionDecision)
-            .Include(g => g.Allocation)
+            .Include(g => g.Allocations)
             .Where(g => g.HousingCycleId == housingCycleId)
             .ToListAsync();
     }

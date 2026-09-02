@@ -31,7 +31,9 @@ with `dryRun: false` to apply it.
   fee is paid; non-payment is handled separately by the daily eviction job (see `PAYMENT_API.md`).
 - A group is placed only if **every** member is `Accepted`. A group with any non-accepted
   member is reported under `skipped`, not placed.
-- Already-housed requests/groups are silently ignored (neither placed nor skipped).
+- Requests/groups that **currently** hold an active allocation are silently ignored (neither
+  placed nor skipped). A group whose earlier allocation was *vacated* (evacuation, etc.) is a
+  normal target again — it gets a fresh allocation, same as a re-applying individual.
 
 ## The algorithm
 

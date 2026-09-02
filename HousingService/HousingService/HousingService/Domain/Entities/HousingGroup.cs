@@ -26,5 +26,9 @@ public class HousingGroup
     public virtual HousingCycle HousingCycle { get; set; } = null!;
     public ICollection<HousingRequest> Members { get; set; } = [];
     public ICollection<GroupInvitation> Invitations { get; set; } = [];
-    public virtual Allocation? Allocation { get; set; }
+    // A group accumulates one Allocation row per room stint over time (vacated rows kept as
+    // history, exactly like an individual HousingRequest). At most one is active
+    // (VacatedAt == null) — enforced by a filtered unique index. Re-housing a group after it
+    // was evacuated adds a new active row rather than being blocked.
+    public ICollection<Allocation> Allocations { get; set; } = [];
 }
